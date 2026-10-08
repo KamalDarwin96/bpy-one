@@ -1,0 +1,2894 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BPY ONE - Smart School Management Dashboard | SK Bendang Pa'Yong (DBA6327)</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bpy: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        },
+                    },
+                    gold: '#d97706',
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    
+    <!-- SheetJS (XLSX Reader & Writer) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    
+    <!-- Chart.js for Dynamic Dashboard Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #0f172a; }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.25s ease-out forwards;
+        }
+
+        /* Printable / Export view styling */
+        @media print {
+            header, nav, #toast-container, button, .no-print, #backendNoticeBanner {
+                display: none !important;
+            }
+            body { background: white !important; color: black !important; padding: 0 !important; }
+            .tab-content { display: block !important; }
+            .print-header { display: block !important; margin-bottom: 20px; }
+            .shadow-sm, .shadow-xl, .shadow-2xl { box-shadow: none !important; }
+            .border { border-color: #cbd5e1 !important; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between antialiased">
+
+    <!-- Notification Toast Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none"></div>
+
+    <!-- Backend & Google Sheets/Drive Database Status Banner -->
+    <div id="backendNoticeBanner" class="bg-slate-900 text-white text-xs py-2 px-4 flex flex-wrap items-center justify-between border-b border-slate-800 no-print gap-2">
+        <div class="flex items-center gap-2">
+            <span id="dbStatusDot" class="inline-block w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+            <span class="font-bold text-slate-200">Storan Pangkalan Data BPY ONE:</span>
+            <span id="dbStatusText" class="text-amber-400 font-semibold">Memuat Pangkalan Data...</span>
+        </div>
+        <div class="flex items-center gap-3 text-[11px] text-slate-400 font-mono">
+            <button onclick="openGoogleDriveConfigModal()" class="bg-bpy-600 hover:bg-bpy-500 text-white px-2.5 py-1 rounded-lg font-sans font-bold flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-file-csv"></i>
+                <span>Tetapan Google Sheets & Drive</span>
+            </button>
+            <span id="syncTimeDisplay"><i class="fa-solid fa-cloud-arrow-up mr-1"></i>Auto Sync Storan</span>
+            <span id="activeRoleNotice" class="bg-slate-800 text-amber-300 px-2 py-0.5 rounded font-bold uppercase">Mod Awam (Ibu Bapa)</span>
+        </div>
+    </div>
+
+    <!-- MODAL LOG MASUK ADMIN SECURE -->
+    <div id="adminLoginModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 hidden animate-fade-in">
+        <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-200">
+            <div class="bg-gradient-to-r from-slate-900 via-bpy-900 to-indigo-950 text-white p-5 flex items-center justify-between border-b border-slate-800">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30">
+                        <i class="fa-solid fa-shield-halved text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base text-white">Log Masuk Pengurusan BPY ONE</h3>
+                        <p class="text-xs text-slate-300">Pengesahan Kebenaran Pentadbir</p>
+                    </div>
+                </div>
+                <button onclick="closeAdminLoginModal()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <form id="adminLoginForm" onsubmit="handleAdminLoginSubmit(event)" class="p-6 space-y-4">
+                <div id="loginErrorBox" class="hidden bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-xl flex items-center gap-2">
+                    <i class="fa-solid fa-circle-exclamation text-rose-500 text-sm"></i>
+                    <span id="loginErrorMsg">Kata laluan tidak sah. Sila hubungi Super Admin.</span>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">Peranan / Unit Admin <span class="text-rose-500">*</span></label>
+                    <select id="loginRoleSelect" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold focus:ring-2 focus:ring-bpy-500 focus:outline-none">
+                        <option value="SUPER_ADMIN">Super Admin (Guru Besar / Utama)</option>
+                        <option value="PENTADBIRAN_ADMIN">Pentadbiran Admin (PK Pentadbiran)</option>
+                        <option value="HEM_ADMIN">HEM Admin (PK Hal Ehwal Murid)</option>
+                        <option value="KOKURIKULUM_ADMIN">Kokurikulum Admin (PK Kokurikulum)</option>
+                        <option value="TEACHER">Guru / AKP Sekolah</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">Kata Laluan <span class="text-rose-500">*</span></label>
+                    <div class="relative">
+                        <input type="password" id="loginPasswordInput" required placeholder="Masukkan kata laluan unit" class="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-bpy-500 focus:outline-none bg-slate-50">
+                        <i class="fa-solid fa-key absolute left-3.5 top-3 text-slate-400 text-xs"></i>
+                        <button type="button" onclick="togglePasswordVisibility('loginPasswordInput', 'togglePassIcon')" class="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600">
+                            <i id="togglePassIcon" class="fa-solid fa-eye text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="pt-2 flex justify-end gap-2">
+                    <button type="button" onclick="closeAdminLoginModal()" class="px-4 py-2 bg-slate-200 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-300 transition">Batal</button>
+                    <button type="submit" class="px-5 py-2 bg-bpy-600 hover:bg-bpy-700 text-white font-bold text-xs rounded-xl transition shadow flex items-center gap-2">
+                        <i class="fa-solid fa-right-to-bracket"></i>
+                        <span>Sahkan & Log Masuk</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL INTEGRASI GOOGLE SHEETS & GOOGLE DRIVE -->
+    <div id="googleDriveConfigModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 hidden animate-fade-in overflow-y-auto">
+        <div class="bg-white rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-200 my-8">
+            <div class="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white p-5 flex items-center justify-between border-b border-emerald-800">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2.5 bg-emerald-500/20 text-emerald-300 rounded-xl border border-emerald-500/30">
+                        <i class="fa-solid fa-file-excel text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base text-white">Sambungan Google Sheets & Google Drive</h3>
+                        <p class="text-xs text-emerald-200">Simpan semua data & fail lampiran terus ke cloud Google</p>
+                    </div>
+                </div>
+                <button onclick="closeGoogleDriveConfigModal()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <form onsubmit="handleGoogleDriveConfigSubmit(event)" class="p-6 space-y-4">
+                <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-xs text-emerald-900 space-y-2">
+                    <p class="font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-circle-info text-emerald-600 text-sm"></i>
+                        <span>Panduan Ringkas Integrasi Backend Google Apps Script:</span>
+                    </p>
+                    <ol class="list-decimal pl-5 space-y-1 text-[11px] font-medium text-emerald-800">
+                        <li>Buka Google Sheets baharu dan pilih menu <b>Extensions &gt; Apps Script</b>.</li>
+                        <li>Tampal kod Apps Script backend (`Code.gs`).</li>
+                        <li>Klik <b>Deploy &gt; New deployment &gt; Select type (Web App)</b>.</li>
+                        <li>Tetapkan <i>"Execute as"</i>: <b>Me</b> dan <i>"Who has access"</i>: <b>Anyone</b>. Klik <b>Deploy</b>.</li>
+                        <li>Salin <b>Web App URL</b> dan masukkan di bawah.</li>
+                    </ol>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase">Google Apps Script Web App URL <span class="text-rose-500">*</span></label>
+                    <input type="url" id="gasWebAppUrlInput" placeholder="https://script.google.com/macros/s/.../exec" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase">ID Folder Utamai Google Drive</label>
+                    <input type="text" id="gasDriveFolderIdInput" placeholder="Contoh: 1a2b3c4d5e6f7g8h9i0j" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    <p class="text-[10px] text-slate-500 mt-1">Folder Google Drive di mana dokumen fail lampiran & gambar akan disimpan secara automatik mengikut struktur `BPY ONE / Tahun / Unit / Seksyen`.</p>
+                </div>
+
+                <div class="flex items-center justify-between pt-3 border-t border-slate-200">
+                    <button type="button" onclick="copyAppsScriptCode()" class="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl transition flex items-center gap-2">
+                        <i class="fa-solid fa-copy"></i>
+                        <span>Salin Kod Apps Script</span>
+                    </button>
+                    
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="closeGoogleDriveConfigModal()" class="px-4 py-2 bg-slate-200 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-300 transition">Batal</button>
+                        <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition shadow flex items-center gap-2">
+                            <i class="fa-solid fa-plug"></i>
+                            <span>Simpan & Uji Sambungan</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL INTEGRASI MUAT NAIK FAIL & DOCUMENT DRIVE -->
+    <div id="driveFileUploadModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 hidden animate-fade-in overflow-y-auto">
+        <div class="bg-white rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden border border-slate-200 my-8">
+            <div class="bg-gradient-to-r from-rose-900 via-pink-900 to-slate-900 text-white p-5 flex items-center justify-between border-b border-rose-800">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2.5 bg-rose-500/20 text-rose-300 rounded-xl border border-rose-500/30">
+                        <i class="fa-solid fa-cloud-arrow-up text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base text-white">Muat Naik Fail ke Google Drive</h3>
+                        <p class="text-xs text-rose-200">Simpan dokumen PDF, Word, Excel, Gambar ke Google Drive secara kekal</p>
+                    </div>
+                </div>
+                <button onclick="closeDriveFileUploadModal()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <form onsubmit="handleDriveFileUploadSubmit(event)" class="p-6 space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Unit Sekolah <span class="text-rose-500">*</span></label>
+                        <select id="docUnitSelect" onchange="populateDocSections()" required class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold focus:outline-none">
+                            <option value="Pentadbiran">Pentadbiran & Kurikulum</option>
+                            <option value="HEM">Hal Ehwal Murid (HEM)</option>
+                            <option value="Kokurikulum">Kokurikulum</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Seksyen Unit <span class="text-rose-500">*</span></label>
+                        <select id="docSectionSelect" required class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold focus:outline-none">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Tajuk Dokumen / Lampiran <span class="text-rose-500">*</span></label>
+                    <input type="text" id="docTitleInput" required placeholder="Contoh: Minit Mesyuarat Kurikulum Bil 1/2026" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold focus:outline-none">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Kategori Dokumen</label>
+                        <select id="docCategorySelect" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold focus:outline-none">
+                            <option value="Minit Mesyuarat">Minit Mesyuarat</option>
+                            <option value="Laporan Program">Laporan Program</option>
+                            <option value="Pekeliling & Surat">Pekeliling & Surat</option>
+                            <option value="Kertas Kerja">Kertas Kerja</option>
+                            <option value="Gambar Program">Gambar Program</option>
+                            <option value="Lain-lain">Lain-lain Dokumen</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Tahun</label>
+                        <input type="number" id="docYearInput" value="2026" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Drag & Drop Upload Zone -->
+                <div id="fileDropZone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleFileDrop(event)" class="border-2 border-dashed border-rose-300 hover:border-rose-500 bg-rose-50/50 p-6 rounded-2xl text-center space-y-2 cursor-pointer transition">
+                    <i class="fa-solid fa-file-arrow-up text-3xl text-rose-500"></i>
+                    <p class="text-xs font-bold text-slate-700">Seret & Lepaskan Fail di sini atau Klik untuk Pilih Fail</p>
+                    <p class="text-[10px] text-slate-500">Menyokong PDF, DOC, DOCX, XLS, XLSX, CSV, PPT, PPTX, JPG, PNG (Maksimum 10MB)</p>
+                    <input type="file" id="fileUploadInput" onchange="handleFileSelect(event)" class="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.jpg,.jpeg,.png">
+                </div>
+
+                <div id="selectedFileInfo" class="hidden bg-slate-100 p-3 rounded-xl border border-slate-200 text-xs flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-file text-rose-600 text-base"></i>
+                        <div>
+                            <p id="fileNameText" class="font-bold text-slate-800">nama_fail.pdf</p>
+                            <p id="fileSizeText" class="text-[10px] text-slate-500">0 KB</p>
+                        </div>
+                    </div>
+                    <span id="uploadProgressBadge" class="bg-rose-100 text-rose-700 font-bold text-[10px] px-2.5 py-1 rounded-full">Sedang Bersedia</span>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+                    <button type="button" onclick="closeDriveFileUploadModal()" class="px-4 py-2 bg-slate-200 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-300 transition">Batal</button>
+                    <button type="submit" id="btnStartUpload" class="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition shadow flex items-center gap-2">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <span>Muat Naik Sekarang</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL IMPORT DATA EXCEL / CSV -->
+    <div id="dataImportModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 hidden animate-fade-in overflow-y-auto">
+        <div class="bg-white rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-200 my-8">
+            <div class="bg-gradient-to-r from-sky-900 via-blue-900 to-slate-900 text-white p-5 flex items-center justify-between border-b border-sky-800">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2.5 bg-sky-500/20 text-sky-300 rounded-xl border border-sky-500/30">
+                        <i class="fa-solid fa-file-import text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base text-white">Import Data Berstruktur (CSV / Excel)</h3>
+                        <p class="text-xs text-sky-200">Muat masukan rekod pukal terus ke dalam pangkalan data</p>
+                    </div>
+                </div>
+                <button onclick="closeDataImportModal()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Pilih Unit Data</label>
+                        <select id="importUnitSelect" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold focus:outline-none">
+                            <option value="Pentadbiran">Pentadbiran</option>
+                            <option value="HEM">Hal Ehwal Murid</option>
+                            <option value="Kokurikulum">Kokurikulum</option>
+                            <option value="DELIMa">DELIMa Murid</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Jenis Rekod</label>
+                        <select id="importRecordTypeSelect" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold focus:outline-none">
+                            <option value="PROGRAM">Aktiviti / Program</option>
+                            <option value="KPI">Indikator KPI</option>
+                            <option value="DELIMA">Akaun DELIMa Murid</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="border-2 border-dashed border-sky-300 bg-sky-50/50 p-6 rounded-2xl text-center space-y-2 cursor-pointer">
+                    <i class="fa-solid fa-file-excel text-3xl text-sky-600"></i>
+                    <p class="text-xs font-bold text-slate-700">Pilih Fail CSV atau Excel (.xlsx)</p>
+                    <input type="file" id="importFileInput" onchange="handleImportFileParse(event)" accept=".csv, .xlsx, .xls" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-sky-100 file:text-sky-700 hover:file:bg-sky-200">
+                </div>
+
+                <div id="importPreviewContainer" class="hidden space-y-3">
+                    <h4 class="font-bold text-xs text-slate-800 uppercase flex items-center justify-between">
+                        <span>Pratonton Data (5 Rekod Pertama)</span>
+                        <span id="importRecordCountBadge" class="bg-sky-100 text-sky-800 px-2 py-0.5 rounded text-[10px]">0 Rekod Ditemui</span>
+                    </h4>
+                    <div class="overflow-x-auto rounded-xl border border-slate-200 max-h-48">
+                        <table class="w-full text-left text-[11px]">
+                            <thead id="importTableHead" class="bg-slate-900 text-white uppercase font-bold"></thead>
+                            <tbody id="importTableBody" class="divide-y divide-slate-200 font-mono"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-3 border-t border-slate-200">
+                    <button type="button" onclick="downloadImportTemplate()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-download"></i>
+                        <span>Muat Turun Templat Excel</span>
+                    </button>
+
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="closeDataImportModal()" class="px-4 py-2 bg-slate-200 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-300 transition">Batal</button>
+                        <button type="button" id="btnExecuteImport" onclick="executeDataImport()" disabled class="px-5 py-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition shadow flex items-center gap-2">
+                            <i class="fa-solid fa-check-double"></i>
+                            <span>Sahkan & Import Data</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL BORANG KPI & PROGRAM HARIAN -->
+    <div id="activityFormModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 hidden animate-fade-in overflow-y-auto">
+        <div class="bg-white rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-200 my-8">
+            <div class="bg-gradient-to-r from-slate-900 via-bpy-900 to-indigo-950 text-white p-5 flex items-center justify-between border-b border-slate-800">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30">
+                        <i class="fa-solid fa-pen-to-square text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 id="actModalTitle" class="font-bold text-base text-white">Borang Rekod Program & KPI</h3>
+                        <p class="text-xs text-slate-300">Pengurusan Rekod Berstruktur mengikut Seksyen Unit</p>
+                    </div>
+                </div>
+                <button onclick="closeActivityFormModal()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <form id="activityRecordForm" onsubmit="handleActivityRecordSubmit(event)" class="p-6 space-y-4">
+                <input type="hidden" id="actEditId" value="">
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Unit Pentadbiran <span class="text-rose-500">*</span></label>
+                        <input type="text" id="actUnitInput" readonly class="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl text-xs font-bold text-slate-700">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Seksyen Unit <span class="text-rose-500">*</span></label>
+                        <select id="actSectionSelect" required class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold focus:outline-none">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Nama Program / Indikator KPI <span class="text-rose-500">*</span></label>
+                    <input type="text" id="actTitleInput" required placeholder="Contoh: Kejohanan Sukan Tahunan / Peratus Kehadiran" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:outline-none">
+                </div>
+
+                <!-- Toggle KPI Calculation Fields vs Standard Program -->
+                <div class="bg-amber-50/60 p-4 rounded-2xl border border-amber-200 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-extrabold text-amber-900 uppercase flex items-center gap-2">
+                            <i class="fa-solid fa-calculator text-amber-600"></i>
+                            <span>Pengiraan Automatik KPI / Prestasi</span>
+                        </span>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="enableKpiCalcToggle" onchange="toggleKpiFieldsDisplay()" class="sr-only peer">
+                            <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600 relative"></div>
+                        </label>
+                    </div>
+
+                    <div id="kpiCalcFieldsGroup" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-700 mb-1">NILAI SEBENAR (PENGANGKA)</label>
+                            <input type="number" id="kpiActualInput" step="any" placeholder="0" oninput="recalculateFormKpi()" class="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-bold">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-700 mb-1">SASARAN (PENYEBUT)</label>
+                            <input type="number" id="kpiTargetInput" step="any" placeholder="100" oninput="recalculateFormKpi()" class="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-bold">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-700 mb-1">ARAH INDIKATOR</label>
+                            <select id="kpiDirectionSelect" onchange="recalculateFormKpi()" class="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-bold">
+                                <option value="higher_better">Tinggi Lebih Baik (&ge; Target)</option>
+                                <option value="lower_better">Rendah Lebih Baik (&le; Target)</option>
+                            </select>
+                        </div>
+                        <div class="sm:col-span-3 bg-white p-2.5 rounded-xl border border-amber-300 flex items-center justify-between text-xs">
+                            <span class="font-bold text-slate-700">Pencapaian Dikira: <span id="kpiCalcResultDisplay" class="text-amber-700 font-black">0%</span></span>
+                            <span id="kpiStatusBadgeDisplay" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">Tiada Data</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Tarikh / Masa</label>
+                        <input type="date" id="actDateInput" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Status Pelaksanaan</label>
+                        <select id="actStatusSelect" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:outline-none">
+                            <option value="Dalam Perancangan">Dalam Perancangan</option>
+                            <option value="Sedang Berlangsung">Sedang Berlangsung</option>
+                            <option value="Selesai">Selesai</option>
+                            <option value="Tangguh">Tangguh</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Papar untuk Awam?</label>
+                        <select id="actPublicVisibilitySelect" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:outline-none">
+                            <option value="YA">Ya (Ibu Bapa / Awam Boleh Lihat)</option>
+                            <option value="TIDAK">Tidak (Hanya Warga Sekolah)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Pautan Lampiran Google Drive (Pilihan)</label>
+                    <input type="url" id="actDriveUrlInput" placeholder="https://drive.google.com/file/d/..." class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono focus:outline-none">
+                </div>
+
+                <div class="pt-3 flex justify-end gap-2 border-t border-slate-200">
+                    <button type="button" onclick="closeActivityFormModal()" class="px-4 py-2 bg-slate-200 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-300 transition">Batal</button>
+                    <button type="submit" class="px-5 py-2 bg-bpy-600 hover:bg-bpy-700 text-white font-bold text-xs rounded-xl transition shadow flex items-center gap-2">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>Simpan Rekod</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL GAMBAR PROFIL UTAMA DASHBOARD -->
+    <div id="dashboardLogoModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 hidden animate-fade-in">
+        <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-200">
+            <div class="bg-gradient-to-r from-slate-900 via-bpy-900 to-indigo-950 text-white p-5 flex items-center justify-between border-b border-slate-800">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30">
+                        <i class="fa-solid fa-image text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base text-white">Gambar Profil Utama Dashboard</h3>
+                        <p class="text-xs text-amber-300 font-semibold">Kawalan Khas Super Admin</p>
+                    </div>
+                </div>
+                <button onclick="closeDashboardLogoModal()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <form onsubmit="handleDashboardLogoSubmit(event)" class="p-6 space-y-4">
+                <div class="flex flex-col items-center justify-center bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                    <div class="w-24 h-24 rounded-2xl overflow-hidden bg-slate-200 border-2 border-amber-500 shadow-md relative flex items-center justify-center">
+                        <img id="dashLogoPreviewImg" src="" alt="Gambar Utama Dashboard" class="w-full h-full object-cover">
+                    </div>
+                    <p class="text-[11px] text-slate-500 text-center">Gambar ini digunakan sebagai logo & identiti utama pengepala dashboard sekolah bagi semua peranti.</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase">Pilih Gambar Baharu (.JPG, .PNG - Max 5MB)</label>
+                    <input type="file" id="dashLogoFileInput" accept="image/jpeg,image/png" onchange="previewDashLogo(event)" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-bpy-50 file:text-bpy-700 hover:file:bg-bpy-100 cursor-pointer">
+                </div>
+
+                <div class="flex items-center justify-between pt-3 border-t border-slate-200">
+                    <button type="button" onclick="revertDashboardLogoToDefault()" class="text-xs text-rose-600 font-bold hover:underline">
+                        <i class="fa-solid fa-rotate-left mr-1"></i>Kembalikan Gambar Lalai
+                    </button>
+                    
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="closeDashboardLogoModal()" class="px-4 py-2 bg-slate-200 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-300 transition">Batal</button>
+                        <button type="submit" class="px-5 py-2 bg-bpy-600 hover:bg-bpy-700 text-white font-bold text-xs rounded-xl transition shadow flex items-center gap-2">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            <span>Simpan Gambar</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL TETAPAN KATA LALUAN UNIT -->
+    <div id="unitPasswordModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 hidden animate-fade-in">
+        <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden border border-slate-200">
+            <div class="bg-gradient-to-r from-slate-900 via-bpy-900 to-indigo-950 text-white p-5 flex items-center justify-between border-b border-slate-800">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30">
+                        <i class="fa-solid fa-key text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base text-white">Pengurusan Kata Laluan Unit</h3>
+                        <p class="text-xs text-amber-300 font-semibold">Kawalan Eksklusif Super Admin</p>
+                    </div>
+                </div>
+                <button onclick="closeUnitPasswordModal()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <form onsubmit="handleUnitPasswordResetSubmit(event)" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase">Pilih Unit Admin <span class="text-rose-500">*</span></label>
+                    <select id="passResetUnitSelect" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold focus:ring-2 focus:ring-bpy-500 focus:outline-none">
+                        <option value="PENTADBIRAN_ADMIN">Pentadbiran Admin (PK Pentadbiran)</option>
+                        <option value="HEM_ADMIN">HEM Admin (PK Hal Ehwal Murid)</option>
+                        <option value="KOKURIKULUM_ADMIN">Kokurikulum Admin (PK Kokurikulum)</option>
+                        <option value="TEACHER">Guru / AKP Sekolah</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5 uppercase">Kata Laluan Baharu <span class="text-rose-500">*</span></label>
+                    <div class="relative">
+                        <input type="password" id="newUnitPassInput" required minlength="6" placeholder="Masukkan kata laluan baharu (Min 6 aksara)" class="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-bpy-500 focus:outline-none bg-slate-50">
+                        <i class="fa-solid fa-lock absolute left-3.5 top-3 text-slate-400 text-xs"></i>
+                        <button type="button" onclick="togglePasswordVisibility('newUnitPassInput', 'toggleNewPassIcon')" class="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600">
+                            <i id="toggleNewPassIcon" class="fa-solid fa-eye text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-xl text-xs space-y-1">
+                    <p class="font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Nota Keselamatan:</p>
+                    <p class="text-[11px]">Penetapan semula ini akan membatalkan semua sesi aktif unit berkenaan serta-merta.</p>
+                </div>
+
+                <div class="pt-2 flex justify-end gap-2">
+                    <button type="button" onclick="closeUnitPasswordModal()" class="px-4 py-2 bg-slate-200 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-300 transition">Batal</button>
+                    <button type="submit" class="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition shadow flex items-center gap-2">
+                        <i class="fa-solid fa-rotate text-xs"></i>
+                        <span>Reset Kata Laluan Unit</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL TETAPAN STAF (TAMBAH / SUNTING STAF) -->
+    <div id="staffModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 hidden animate-fade-in overflow-y-auto">
+        <div class="bg-white rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden border border-slate-200 my-8">
+            <div class="bg-gradient-to-r from-slate-900 via-bpy-900 to-indigo-950 text-white p-5 flex items-center justify-between border-b border-slate-800">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30">
+                        <i class="fa-solid fa-user-gear text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 id="staffModalTitle" class="font-bold text-base text-white">Borang Maklumat Staf</h3>
+                        <p class="text-xs text-slate-300">Pentadbiran Staf & Profil Gambar Individu</p>
+                    </div>
+                </div>
+                <button onclick="closeStaffModal()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <form id="staffForm" onsubmit="handleStaffFormSubmit(event)" class="p-6 space-y-4">
+                <input type="hidden" id="staffEditId" value="">
+
+                <div class="flex flex-col sm:flex-row items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div class="relative w-24 h-24 rounded-full overflow-hidden bg-slate-200 border-2 border-bpy-500 flex items-center justify-center group shadow-md shrink-0">
+                        <img id="staffImagePreview" src="https://placehold.co/150x150/0284c7/ffffff?text=STAF" alt="Pratonton Gambar" class="w-full h-full object-cover">
+                    </div>
+                    <div class="space-y-2 flex-grow text-center sm:text-left">
+                        <label class="block text-xs font-bold text-slate-700 uppercase">Gambar Profil Individu Staf</label>
+                        <p class="text-[11px] text-slate-500">Pilih fail gambar daripada telefon atau komputer (.JPG, .PNG max 5MB)</p>
+                        <div class="flex flex-wrap gap-2 justify-center sm:justify-start">
+                            <label for="staffImageFileInput" class="cursor-pointer bg-bpy-600 hover:bg-bpy-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition inline-flex items-center gap-2 shadow-sm">
+                                <i class="fa-solid fa-camera"></i>
+                                <span>Muat Naik Gambar</span>
+                            </label>
+                            <input type="file" id="staffImageFileInput" accept="image/jpeg,image/png" onchange="previewStaffImage(event)" class="hidden">
+                            
+                            <button type="button" onclick="resetStaffPhoto()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs px-3 py-2 rounded-xl transition">
+                                Reset Avatar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Nama Penuh Staf <span class="text-rose-500">*</span></label>
+                        <input type="text" id="staffNameInput" required placeholder="Contoh: En. Ahmad Bin Abdullah" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-bpy-500 focus:outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Kategori Staf <span class="text-rose-500">*</span></label>
+                        <select id="staffCategoryInput" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-bpy-500 focus:outline-none">
+                            <option value="Guru">Guru Akademik / Pentadbir</option>
+                            <option value="AKP">Anggota Kumpulan Pelaksana (AKP)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Jawatan <span class="text-rose-500">*</span></label>
+                        <select id="staffPositionInput" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-bpy-500 focus:outline-none">
+                            <option value="Guru Besar">Guru Besar</option>
+                            <option value="PK Pentadbiran">PK Pentadbiran</option>
+                            <option value="PK Hal Ehwal Murid">PK Hal Ehwal Murid</option>
+                            <option value="PK Kokurikulum">PK Kokurikulum</option>
+                            <option value="Guru Akademik Biasa">Guru Akademik Biasa</option>
+                            <option value="Guru Bimbingan & Kaunseling">Guru Bimbingan & Kaunseling</option>
+                            <option value="Guru Prasekolah">Guru Prasekolah</option>
+                            <option value="Pembantu Tadbir (N19/N22)">Pembantu Tadbir</option>
+                            <option value="Pembantu Pengurusan Murid (N19)">Pembantu Pengurusan Murid</option>
+                            <option value="Juruteknik Komputer (FT19)">Juruteknik Komputer</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Gred Perkhidmatan</label>
+                        <input type="text" id="staffGradeInput" placeholder="Contoh: DG48 / N19" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-bpy-500 focus:outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Unit / Panitia Principal</label>
+                        <input type="text" id="staffUnitInput" placeholder="Contoh: Panitia Bahasa Melayu" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-bpy-500 focus:outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">E-mel MOE / Rasmi</label>
+                        <input type="email" id="staffEmailInput" placeholder="g-12345678@moe-dl.edu.my" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-bpy-500 focus:outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">No. Telefon</label>
+                        <input type="text" id="staffPhoneInput" placeholder="01X-XXXXXXX" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-bpy-500 focus:outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1 uppercase">Status Perkhidmatan <span class="text-rose-500">*</span></label>
+                        <select id="staffStatusInput" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-bpy-500 focus:outline-none">
+                            <option value="Aktif">Aktif</option>
+                            <option value="Tidak Aktif">Tidak Aktif / Pertukaran</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="pt-4 flex items-center justify-end gap-2 border-t border-slate-200">
+                    <button type="button" onclick="closeStaffModal()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition">
+                        Batal
+                    </button>
+                    <button type="submit" class="px-5 py-2 bg-bpy-600 hover:bg-bpy-700 text-white font-bold text-xs rounded-xl transition shadow flex items-center gap-2">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>Simpan Maklumat Staf</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Application Top Bar Header -->
+    <header class="bg-gradient-to-r from-slate-900 via-bpy-900 to-indigo-950 text-white shadow-xl sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                <!-- School Brand / Main Logo Profile -->
+                <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('dashboard')">
+                    <div id="schoolLogoContainer" class="w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-400 to-amber-200 text-slate-900 flex items-center justify-center font-black text-xl shadow-lg ring-2 ring-amber-300/50 overflow-hidden relative group">
+                        <img id="mainDashboardLogoImg" src="https://placehold.co/150x150/0284c7/ffffff?text=SKBPY" alt="SKBPY Logo" class="w-full h-full object-cover">
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 id="headerSchoolTitle" class="text-xl font-extrabold tracking-tight text-white">BPY <span class="text-amber-400">ONE</span></h1>
+                            <span id="userRoleBadgeDisplay" class="bg-emerald-500/20 text-emerald-300 text-[10px] px-2.5 py-0.5 rounded-full font-bold border border-emerald-500/30 uppercase tracking-wider">
+                                Mod Awam (Ibu Bapa / Baca Sahaja)
+                            </span>
+                        </div>
+                        <p id="headerSchoolSub" class="text-xs text-slate-300 font-medium">Sekolah Kebangsaan Bendang Pa'Yong (DBA6327)</p>
+                    </div>
+                </div>
+
+                <!-- Action Controls / Login Button -->
+                <div class="flex items-center gap-2 sm:gap-3">
+                    <button id="btnLoginModalTrigger" onclick="openAdminLoginModal()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs px-4 py-2 rounded-xl transition flex items-center gap-2 shadow-lg">
+                        <i class="fa-solid fa-lock"></i>
+                        <span>Log Masuk Admin</span>
+                    </button>
+
+                    <div id="adminSessionInfo" class="hidden items-center gap-2">
+                        <span id="sessionRoleText" class="text-xs font-bold text-amber-300 bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 uppercase">SUPER ADMIN</span>
+                        <button onclick="logoutAdmin()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow">
+                            <i class="fa-solid fa-right-from-bracket"></i>
+                            <span>Log Keluar</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <nav class="bg-slate-950/80 border-t border-slate-800/80 backdrop-blur-md">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between overflow-x-auto custom-scrollbar py-1">
+                    <div class="flex space-x-1 min-w-max">
+                        <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold text-amber-400 bg-white/10 transition">
+                            <i class="fa-solid fa-chart-line"></i>
+                            <span>Utama</span>
+                        </button>
+
+                        <button onclick="switchTab('staff')" id="nav-staff" class="nav-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold text-slate-300 hover:text-white hover:bg-white/5 transition">
+                            <i class="fa-solid fa-id-card-clip text-amber-400"></i>
+                            <span>Tetapan Staf</span>
+                        </button>
+
+                        <button onclick="switchTab('kehadiran')" id="nav-kehadiran" class="nav-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold text-slate-300 hover:text-white hover:bg-white/5 transition">
+                            <i class="fa-solid fa-location-dot text-emerald-400"></i>
+                            <span>Kehadiran Guru</span>
+                        </button>
+
+                        <button onclick="switchTab('pentadbiran')" id="nav-pentadbiran" class="nav-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold text-slate-300 hover:text-white hover:bg-white/5 transition">
+                            <i class="fa-solid fa-landmark text-sky-400"></i>
+                            <span>Pentadbiran & Kurikulum</span>
+                        </button>
+
+                        <button onclick="switchTab('hem')" id="nav-hem" class="nav-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold text-slate-300 hover:text-white hover:bg-white/5 transition">
+                            <i class="fa-solid fa-users text-indigo-400"></i>
+                            <span>Hal Ehwal Murid (HEM)</span>
+                        </button>
+
+                        <button onclick="switchTab('kokurikulum')" id="nav-kokurikulum" class="nav-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold text-slate-300 hover:text-white hover:bg-white/5 transition">
+                            <i class="fa-solid fa-trophy text-amber-300"></i>
+                            <span>Kokurikulum</span>
+                        </button>
+
+                        <button onclick="switchTab('delima')" id="nav-delima" class="nav-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold text-slate-300 hover:text-white hover:bg-white/5 transition">
+                            <i class="fa-solid fa-graduation-cap text-teal-300"></i>
+                            <span>DELIMa Murid</span>
+                        </button>
+
+                        <button onclick="switchTab('dokumen')" id="nav-dokumen" class="nav-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold text-slate-300 hover:text-white hover:bg-white/5 transition">
+                            <i class="fa-solid fa-folder-open text-rose-300"></i>
+                            <span>Fail & Lampiran Drive</span>
+                        </button>
+
+                        <button onclick="switchTab('super-admin-panel')" id="nav-super-admin-panel" class="nav-btn super-admin-only hidden flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 transition">
+                            <i class="fa-solid fa-crown"></i>
+                            <span>Panel Super Admin</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        
+        <!-- Header Leaders Display Banner -->
+        <div class="bg-gradient-to-r from-slate-900 via-bpy-900 to-slate-900 rounded-2xl p-4 md:p-5 text-white shadow-xl mb-6 border border-slate-800">
+            <div class="flex flex-col lg:flex-row items-center justify-between gap-4">
+                <div class="flex items-center space-x-4">
+                    <div class="p-3 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30">
+                        <i class="fa-solid fa-sitemap text-2xl"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xs uppercase tracking-widest text-amber-400 font-bold">Barisan Pentadbir Utama Sekolah</h2>
+                        <p class="text-xs text-slate-300">SK Bendang Pa'Yong (DBA6327) &bull; Pengurusan Terpusat Google Sheets & Drive</p>
+                    </div>
+                </div>
+                <div id="leadersHeaderGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full lg:w-auto">
+                    <!-- Dynamic Leaders Cards rendered via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 1: DASHBOARD UTAMA -->
+        <div id="tab-dashboard" class="tab-content space-y-6 animate-fade-in">
+            <!-- Global Filter Bar -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-filter text-bpy-600 text-sm"></i>
+                    <span class="text-xs font-bold text-slate-800 uppercase">Penapis Dashboard:</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <select id="filterYear" onchange="applyGlobalDashboardFilters()" class="px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl font-bold">
+                        <option value="ALL">Semua Tahun</option>
+                        <option value="2026" selected>2026</option>
+                        <option value="2025">2025</option>
+                    </select>
+                    <select id="filterUnit" onchange="applyGlobalDashboardFilters()" class="px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl font-bold">
+                        <option value="ALL">Semua Unit</option>
+                        <option value="Pentadbiran">Pentadbiran</option>
+                        <option value="HEM">Hal Ehwal Murid</option>
+                        <option value="Kokurikulum">Kokurikulum</option>
+                    </select>
+                    <button onclick="resetGlobalDashboardFilters()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl transition">
+                        Reset Penapis
+                    </button>
+                </div>
+            </div>
+
+            <!-- Summary KPI Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-bold text-slate-500 uppercase">Enrolmen Murid</p>
+                        <h3 class="text-2xl font-black text-slate-900 mt-1" id="stat-total-students">0</h3>
+                        <p class="text-[11px] text-emerald-600 font-semibold mt-1">Prasekolah &amp; Tahun 1-6</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-bpy-50 text-bpy-600 flex items-center justify-center text-xl shadow-inner">
+                        <i class="fa-solid fa-user-graduate"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-bold text-slate-500 uppercase">Warga Guru & AKP</p>
+                        <h3 class="text-2xl font-black text-slate-900 mt-1" id="stat-total-staff">0</h3>
+                        <p class="text-[11px] text-sky-600 font-semibold mt-1"><span id="stat-active-staff">0</span> Staf Aktif</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center text-xl shadow-inner">
+                        <i class="fa-solid fa-chalkboard-user"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-bold text-slate-500 uppercase">Kehadiran Guru Hari Ini</p>
+                        <h3 class="text-2xl font-black text-emerald-600 mt-1" id="dash-guru-att-percentage">0%</h3>
+                        <p class="text-[11px] text-slate-500 font-semibold mt-1" id="dash-guru-att-sub">0 daripada 0 Hadir</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shadow-inner">
+                        <i class="fa-solid fa-user-check"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-bold text-slate-500 uppercase">Pelaksanaan Program</p>
+                        <h3 class="text-2xl font-black text-amber-600 mt-1" id="dash-overall-prog-rate">0%</h3>
+                        <p class="text-[11px] text-amber-700 font-semibold mt-1" id="dash-prog-sub-text">0/0 Program Selesai</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl shadow-inner">
+                        <i class="fa-solid fa-chart-pie"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts & Visual Analytics Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Chart 1: Staff Distribution -->
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-chart-bar text-bpy-600"></i>
+                            <span>Taburan Kategori Staf Sekolah</span>
+                        </h3>
+                        <span class="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-1 rounded-lg">Graf Dinamik</span>
+                    </div>
+                    <div class="relative h-56 flex items-center justify-center">
+                        <canvas id="staffChartCanvas" class="w-full h-full"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 2: Program Status Breakdown -->
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-chart-pie text-emerald-600"></i>
+                            <span>Status Pelaksanaan Program Unit</span>
+                        </h3>
+                        <span class="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-1 rounded-lg">Status Terkini</span>
+                    </div>
+                    <div class="relative h-56 flex items-center justify-center">
+                        <canvas id="programChartCanvas" class="w-full h-full"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PUBLIC RECENT ACTIVITIES / ACHIEVEMENTS FEED -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 border-b border-slate-100 pb-3">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2.5 bg-amber-100 text-amber-800 rounded-xl font-bold">
+                            <i class="fa-solid fa-bullhorn text-lg"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-black text-slate-900 text-base">Aktiviti Terkini & Pencapaian Sekolah</h3>
+                            <p class="text-xs text-slate-500">Rekod rasmi yang diterbitkan oleh Unit Pentadbiran, HEM & Kokurikulum</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="openDataImportModal()" class="bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-2 shadow-sm">
+                            <i class="fa-solid fa-file-import"></i>
+                            <span>Import CSV/Excel</span>
+                        </button>
+                        <button onclick="exportActivitiesToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-2 shadow-sm">
+                            <i class="fa-solid fa-file-excel"></i>
+                            <span>Eksport Excel</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="publicActivitiesContainer" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Rendered via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: TETAPAN STAF -->
+        <div id="tab-staff" class="tab-content space-y-6 hidden animate-fade-in">
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 space-y-6">
+                
+                <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-2xl font-black text-slate-900">Tetapan & Maklumat Staf (Guru & AKP)</h2>
+                            <span class="bg-amber-100 text-amber-800 font-bold text-xs px-2.5 py-0.5 rounded-full border border-amber-300">
+                                Pentadbiran & Super Admin
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1">
+                            Urus profil individu guru dan AKP, muat naik gambar profil, dan tetapkan status perkhidmatan.
+                        </p>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                        <button onclick="exportStaffToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl transition shadow flex items-center gap-2">
+                            <i class="fa-solid fa-file-excel text-sm"></i>
+                            <span>Eksport Excel</span>
+                        </button>
+                        
+                        <button id="btnAddStaffBtn" onclick="openStaffModalForAdd()" class="bg-bpy-600 hover:bg-bpy-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl transition shadow flex items-center gap-2">
+                            <i class="fa-solid fa-user-plus text-sm"></i>
+                            <span>+ Tambah Staf Baharu</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                    <div class="sm:col-span-2 relative">
+                        <input type="text" id="staffSearchInput" onkeyup="renderStaffGrid()" placeholder="Cari nama staf, gred, unit atau jawatan..." class="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-bpy-500 focus:outline-none">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                    </div>
+                    <div>
+                        <select id="staffStatusFilter" onchange="renderStaffGrid()" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-bpy-500 focus:outline-none">
+                            <option value="ALL">Semua Status (Aktif &amp; Tidak Aktif)</option>
+                            <option value="Aktif" selected>Hanya Staf Aktif</option>
+                            <option value="Tidak Aktif">Hanya Tidak Aktif</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="staffGridContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: KEHADIRAN GURU -->
+        <div id="tab-kehadiran" class="tab-content space-y-6 hidden animate-fade-in">
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 space-y-6">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                    <div>
+                        <h2 class="text-2xl font-black text-slate-900">Borang & Rekod Kehadiran Guru</h2>
+                        <p class="text-xs text-slate-500 mt-1">Pemantauan status harian kehadiran guru dan staf mengikut zon masa Malaysia (Asia/Kuala_Lumpur).</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="exportAttendanceToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl transition shadow flex items-center gap-2">
+                            <i class="fa-solid fa-file-excel"></i>
+                            <span>Eksport Excel</span>
+                        </button>
+                        <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl transition shadow flex items-center gap-2">
+                            <i class="fa-solid fa-print"></i>
+                            <span>Cetak Laporan PDF</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center">
+                        <p class="text-[10px] font-bold text-slate-500 uppercase">Hadir Fizikal</p>
+                        <h4 id="cnt-hadir" class="text-xl font-black text-emerald-600">0</h4>
+                    </div>
+                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center">
+                        <p class="text-[10px] font-bold text-slate-500 uppercase">Tugas Rasmi</p>
+                        <h4 id="cnt-tugas" class="text-xl font-black text-sky-600">0</h4>
+                    </div>
+                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center">
+                        <p class="text-[10px] font-bold text-slate-500 uppercase">Cuti Rehat Khas</p>
+                        <h4 id="cnt-crk" class="text-xl font-black text-amber-600">0</h4>
+                    </div>
+                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center">
+                        <p class="text-[10px] font-bold text-slate-500 uppercase">Cuti / Sakit</p>
+                        <h4 id="cnt-kuarantin" class="text-xl font-black text-purple-600">0</h4>
+                    </div>
+                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center">
+                        <p class="text-[10px] font-bold text-slate-500 uppercase">Lewat / Catatan</p>
+                        <h4 id="cnt-lewat" class="text-xl font-black text-rose-600">0</h4>
+                    </div>
+                </div>
+
+                <div id="attendanceEntryCard" class="bg-bpy-50 border border-bpy-200 p-4 rounded-2xl space-y-3">
+                    <h3 class="font-bold text-xs uppercase text-bpy-900 flex items-center gap-2">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                        <span>Borang Rekod Kehadiran Staf Harian</span>
+                    </h3>
+                    <form onsubmit="handleAttendanceSubmit(event)" class="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">NAMA GURU / AKP</label>
+                            <select id="attStaffSelect" required class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:outline-none">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">STATUS KEHADIRAN</label>
+                            <select id="attStatusSelect" required onchange="handleAttStatusChange()" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:outline-none">
+                                <option value="Hadir">Hadir</option>
+                                <option value="Tugas Rasmi">Tugas Rasmi</option>
+                                <option value="Cuti Rehat Khas">Cuti Rehat Khas (CRK)</option>
+                                <option value="Cuti Kuarantin">Cuti Kuarantin / Sakit</option>
+                                <option value="Lewat">Lewat</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">MASA MASUK</label>
+                            <input type="text" id="attTimeDisplay" readonly class="w-full px-3 py-2 bg-slate-100 rounded-xl border border-slate-300 text-xs font-mono font-bold text-slate-700">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">CATATAN / ULASAN <span id="attReasonRequiredTag" class="text-rose-500 hidden">*</span></label>
+                            <input type="text" id="attNoteInput" placeholder="Ulasan bagi selain Hadir..." class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:outline-none">
+                        </div>
+                        <div class="flex items-end">
+                            <button type="submit" class="w-full bg-bpy-600 hover:bg-bpy-700 text-white font-bold text-xs py-2 rounded-xl transition shadow">
+                                Hantar Kehadiran
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-slate-200">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-900 text-white font-semibold uppercase">
+                                <th class="py-3 px-3">Guru / Staf</th>
+                                <th class="py-3 px-3">Tarikh</th>
+                                <th class="py-3 px-3">Masa</th>
+                                <th class="py-3 px-3">Status</th>
+                                <th class="py-3 px-3">Catatan / Ulasan</th>
+                                <th class="py-3 px-3">Tindakan</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendanceTableBody" class="divide-y divide-slate-200">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: PENTADBIRAN & KURIKULUM -->
+        <div id="tab-pentadbiran" class="tab-content space-y-6 hidden animate-fade-in">
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 space-y-4">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-3">
+                    <div>
+                        <h2 class="text-2xl font-black text-slate-900">Unit Pentadbiran & Kurikulum</h2>
+                        <p class="text-xs text-slate-500">Pengurusan perancangan strategik, panitia, mesyuarat dan 15 seksyen pentadbiran</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="openAddActivityModal('Pentadbiran')" class="bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl transition shadow flex items-center gap-2">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>+ Tambah Program Pentadbiran</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Pentadbiran Chart -->
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <h4 class="font-bold text-xs text-slate-700 uppercase mb-2">Prestasi Pencerapan &amp; Program Kurikulum</h4>
+                    <div class="h-48">
+                        <canvas id="pentadbiranChartCanvas"></canvas>
+                    </div>
+                </div>
+
+                <div id="pentadbiranActivitiesList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Rendered via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 5: HAL EHWAL MURID (HEM) -->
+        <div id="tab-hem" class="tab-content space-y-6 hidden animate-fade-in">
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 space-y-4">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-3">
+                    <div>
+                        <h2 class="text-2xl font-black text-slate-900">Unit Hal Ehwal Murid (HEM)</h2>
+                        <p class="text-xs text-slate-500">Pengurusan SSDM, RMT, SPBT, Bantuan Kesihatan & Disiplin Murid (17 Seksyen HEM)</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="openAddActivityModal('HEM')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl transition shadow flex items-center gap-2">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>+ Tambah Program HEM</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- HEM Chart -->
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <h4 class="font-bold text-xs text-slate-700 uppercase mb-2">Trend Kehadiran Murid &amp; Bantuan HEM</h4>
+                    <div class="h-48">
+                        <canvas id="hemChartCanvas"></canvas>
+                    </div>
+                </div>
+
+                <div id="hemActivitiesList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Rendered via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 6: KOKURIKULUM -->
+        <div id="tab-kokurikulum" class="tab-content space-y-6 hidden animate-fade-in">
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 space-y-4">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-3">
+                    <div>
+                        <h2 class="text-2xl font-black text-slate-900">Unit Kokurikulum & Sukan</h2>
+                        <p class="text-xs text-slate-500">Pengurusan Badan Beruniform, Kelab & Persatuan, Sukan, PAJSK & SEGAK (17 Seksyen Koku)</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="openAddActivityModal('Kokurikulum')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl transition shadow flex items-center gap-2">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>+ Tambah Program Kokurikulum</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Koku Chart -->
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <h4 class="font-bold text-xs text-slate-700 uppercase mb-2">Pencapaian Pertandingan &amp; Kehadiran Kokurikulum</h4>
+                    <div class="h-48">
+                        <canvas id="kokuChartCanvas"></canvas>
+                    </div>
+                </div>
+
+                <div id="kokuActivitiesList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Rendered via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 7: DELIMA MURID -->
+        <div id="tab-delima" class="tab-content space-y-6 hidden animate-fade-in">
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 space-y-4">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-3">
+                    <div>
+                        <h2 class="text-2xl font-black text-slate-900">Pengurusan DELIMa & Carian ID Murid</h2>
+                        <p class="text-xs text-slate-500">Carian e-mel dan penetapan kata laluan portal DELIMa KPM</p>
+                    </div>
+                    <a href="https://delima.moe-dl.edu.my/" target="_blank" class="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-2 shadow-sm">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                        <span>Buka Portal DELIMa KPM</span>
+                    </a>
+                </div>
+
+                <div class="relative max-w-md">
+                    <input type="text" id="delimaSearchInput" onkeyup="renderDelimaTable()" placeholder="Cari nama murid, MyKid atau kelas..." class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-slate-200">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-900 text-white uppercase">
+                                <th class="py-3 px-3">Nama Murid</th>
+                                <th class="py-3 px-3">MyKid / No. SB</th>
+                                <th class="py-3 px-3">Kelas</th>
+                                <th class="py-3 px-3">E-Mel DELIMa MOE</th>
+                                <th class="py-3 px-3">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="delimaTableBody" class="divide-y divide-slate-200 font-mono">
+                            <!-- Rendered via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 8: FAIL & LAMPIRAN GOOGLE DRIVE -->
+        <div id="tab-dokumen" class="tab-content space-y-6 hidden animate-fade-in">
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 space-y-4">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-3">
+                    <div>
+                        <h2 class="text-2xl font-black text-slate-900">Storan Fail & Lampiran Google Drive</h2>
+                        <p class="text-xs text-slate-500">Fail dokumen sekolah, gambar aktiviti & pekeliling tersimpan secara automatik ke Google Drive</p>
+                    </div>
+                    <button onclick="handleFileUploadToDrive()" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl transition flex items-center gap-2 shadow-sm">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <span>Muat Naik Fail ke Google Drive</span>
+                    </button>
+                </div>
+
+                <div id="driveDocumentsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Rendered via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 9: PANEL SUPER ADMIN -->
+        <div id="tab-super-admin-panel" class="tab-content space-y-6 hidden animate-fade-in">
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 space-y-6">
+                <div class="border-b border-slate-100 pb-3">
+                    <h2 class="text-2xl font-black text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-crown text-amber-500"></i>
+                        <span>Panel Kawalan Khas Super Admin</span>
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-1">Pengurusan tetapan pangkalan data Google Sheets & Drive, reset kata laluan unit, dan audit log.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                        <h4 class="font-bold text-xs uppercase text-slate-800"><i class="fa-solid fa-plug text-emerald-600 mr-1.5"></i>Integrasi Cloud Google</h4>
+                        <p class="text-[11px] text-slate-500">Tetapkan URL Google Apps Script Web App untuk auto-sync data ke Google Sheets & Drive.</p>
+                        <button onclick="openGoogleDriveConfigModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 rounded-xl transition mt-2">
+                            Urus Google Sheets & Drive
+                        </button>
+                    </div>
+
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                        <h4 class="font-bold text-xs uppercase text-slate-800"><i class="fa-solid fa-key text-amber-600 mr-1.5"></i>Kata Laluan Unit Admin</h4>
+                        <p class="text-[11px] text-slate-500">Tukar dan tetapkan semula kata laluan bagi mana-mana unit pentadbiran atau guru.</p>
+                        <button onclick="openUnitPasswordModal()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs py-2 rounded-xl transition mt-2">
+                            Urus Kata Laluan Unit
+                        </button>
+                    </div>
+
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                        <h4 class="font-bold text-xs uppercase text-slate-800"><i class="fa-solid fa-image text-bpy-600 mr-1.5"></i>Gambar Profil / Logo Utama</h4>
+                        <p class="text-[11px] text-slate-500">Kemaskini logo rasmi sekolah yang dipaparkan di pengepala dashboard utama.</p>
+                        <button onclick="openDashboardLogoModal()" class="w-full bg-bpy-600 hover:bg-bpy-700 text-white font-bold text-xs py-2 rounded-xl transition mt-2">
+                            Muat Naik Gambar Header
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Audit Log Table -->
+                <div class="space-y-3 pt-4 border-t border-slate-200">
+                    <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-indigo-600"></i>
+                        <span>Log Perubahan & Audit Sistem (Waktu Malaysia)</span>
+                    </h3>
+                    <div class="overflow-x-auto rounded-xl border border-slate-200 max-h-60">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-900 text-white font-semibold uppercase">
+                                <tr>
+                                    <th class="py-2.5 px-3">Tarikh & Masa</th>
+                                    <th class="py-2.5 px-3">Pengguna / Peranan</th>
+                                    <th class="py-2.5 px-3">Tindakan</th>
+                                    <th class="py-2.5 px-3">Unit / Seksyen</th>
+                                    <th class="py-2.5 px-3">Ringkasan Perubahan</th>
+                                </tr>
+                            </thead>
+                            <tbody id="auditLogTableBody" class="divide-y divide-slate-200 font-mono text-[11px]">
+                                <!-- Rendered via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-950 text-slate-400 py-6 text-xs text-center border-t border-slate-900 mt-10 no-print">
+        <div class="max-w-7xl mx-auto px-4">
+            <p class="font-bold text-slate-300">&copy; 2026 SK Bendang Pa'Yong (DBA6327). Hak Cipta Terpelihara.</p>
+            <p class="text-[10px] text-slate-500 mt-1">BPY ONE - Smart School Management System &bull; Integrasi Google Sheets & Google Drive Cloud Storage</p>
+        </div>
+    </footer>
+
+    <script>
+        // Section Master List definitions (Permanent IDs)
+        const SECTIONS_MASTER = {
+            Pentadbiran: [
+                { id: 'PADM_01', name: 'Profil Sekolah' },
+                { id: 'PADM_02', name: 'Carta Organisasi' },
+                { id: 'PADM_03', name: 'Maklumat Guru dan AKP' },
+                { id: 'PADM_04', name: 'Pengurusan Kurikulum' },
+                { id: 'PADM_05', name: 'Panitia Mata Pelajaran' },
+                { id: 'PADM_06', name: 'Jadual Waktu dan Guru Ganti' },
+                { id: 'PADM_07', name: 'Pengurusan Pentaksiran dan Peperiksaan' },
+                { id: 'PADM_08', name: 'Pencerapan dan Pemantauan PdP' },
+                { id: 'PADM_09', name: 'Mesyuarat dan Minit Mesyuarat' },
+                { id: 'PADM_10', name: 'Latihan dan Pembangunan Profesional' },
+                { id: 'PADM_11', name: 'Pengurusan Kewangan' },
+                { id: 'PADM_12', name: 'Pengurusan Aset dan Inventori' },
+                { id: 'PADM_13', name: 'Pengurusan Fail dan Surat Rasmi' },
+                { id: 'PADM_14', name: 'Takwim Pentadbiran' },
+                { id: 'PADM_15', name: 'Laporan Program dan Dokumentasi' }
+            ],
+            HEM: [
+                { id: 'PHEM_01', name: 'Pengurusan Data dan Pendaftaran Murid' },
+                { id: 'PHEM_02', name: 'Kehadiran Murid' },
+                { id: 'PHEM_03', name: 'Disiplin dan Sahsiah Murid' },
+                { id: 'PHEM_04', name: 'Pengawas Sekolah' },
+                { id: 'PHEM_05', name: 'Bimbingan dan Kaunseling' },
+                { id: 'PHEM_06', name: 'Kebajikan dan Bantuan Murid' },
+                { id: 'PHEM_07', name: 'Rancangan Makanan Tambahan — RMT' },
+                { id: 'PHEM_08', name: 'Program Susu Sekolah' },
+                { id: 'PHEM_09', name: 'Skim Pinjaman Buku Teks — SPBT' },
+                { id: 'PHEM_10', name: 'Pengurusan Kantin' },
+                { id: 'PHEM_11', name: 'Kesihatan Murid' },
+                { id: 'PHEM_12', name: 'Kebersihan dan Keceriaan' },
+                { id: 'PHEM_13', name: 'Keselamatan Sekolah' },
+                { id: 'PHEM_14', name: 'Pendidikan Pencegahan Dadah — PPDa' },
+                { id: 'PHEM_15', name: 'Pengurusan Bencana' },
+                { id: 'PHEM_16', name: 'Takwim HEM' },
+                { id: 'PHEM_17', name: 'Laporan Program dan Dokumentasi' }
+            ],
+            Kokurikulum: [
+                { id: 'PKOK_01', name: 'Pengurusan dan Pendaftaran Keahlian' },
+                { id: 'PKOK_02', name: 'Unit Beruniform' },
+                { id: 'PKOK_03', name: 'Kelab dan Persatuan' },
+                { id: 'PKOK_04', name: 'Sukan dan Permainan' },
+                { id: 'PKOK_05', name: 'Rumah Sukan' },
+                { id: 'PKOK_06', name: 'Jadual Perjumpaan dan Aktiviti' },
+                { id: 'PKOK_07', name: 'Kehadiran Kokurikulum' },
+                { id: 'PKOK_08', name: 'PAJSK' },
+                { id: 'PKOK_09', name: 'SEGAK dan BMI' },
+                { id: 'PKOK_10', name: 'Merentas Desa' },
+                { id: 'PKOK_11', name: 'Kejohanan Sukan Tahunan' },
+                { id: 'PKOK_12', name: 'Pertandingan dan Penyertaan' },
+                { id: 'PKOK_13', name: 'Pencapaian dan Penghargaan' },
+                { id: 'PKOK_14', name: 'Pengurusan Peralatan Sukan' },
+                { id: 'PKOK_15', name: 'Perkhemahan dan Lawatan' },
+                { id: 'PKOK_16', name: 'Takwim Kokurikulum' },
+                { id: 'PKOK_17', name: 'Laporan Program dan Dokumentasi' }
+            ]
+        };
+
+        // Passwords for unit admins
+        let UNIT_PASSWORDS = {
+            SUPER_ADMIN: 'admin123',
+            PENTADBIRAN_ADMIN: 'adminpentadbiran',
+            HEM_ADMIN: 'adminhem',
+            KOKURIKULUM_ADMIN: 'adminkoku',
+            TEACHER: 'guru123'
+        };
+
+        // ===== TETAPAN WAJIB UNTUK GOOGLE SITES =====
+        // Google Sites memasukkan dashboard ini dalam iframe "sandbox" yang menyekat/kosongkan localStorage.
+        // Jadi URL Apps Script MESTI ditulis tetap di sini (bukan disimpan di browser).
+        // Tampal URL Web App (berakhir /exec) di antara tanda petikan:
+        const DEFAULT_GAS_URL = '';
+        const DEFAULT_DRIVE_FOLDER_ID = '';
+
+        // localStorage selamat (tak crash bila disekat / penuh)
+        function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+        function safeSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
+
+        // Configuration for Google Apps Script Web App
+        let GOOGLE_CONFIG = {
+            webAppUrl: DEFAULT_GAS_URL || safeGet('bpy_gas_url') || '',
+            driveFolderId: DEFAULT_DRIVE_FOLDER_ID || safeGet('bpy_drive_folder') || ''
+        };
+
+        // Current active session role: 'PUBLIC', 'SUPER_ADMIN', 'PENTADBIRAN_ADMIN', 'HEM_ADMIN', 'KOKURIKULUM_ADMIN', 'TEACHER'
+        let currentUserRole = 'PUBLIC';
+
+        // Main Data State
+        let APP_DATA = {
+            dashboardLogo: safeGet('bpy_dash_logo') || 'https://placehold.co/150x150/0284c7/ffffff?text=SKBPY',
+            leaders: [
+                { id: '1', title: 'Guru Besar', name: 'Pn. Hajah Rohana Binti Hassan', grade: 'DG52', photo: 'https://placehold.co/150x150/0284c7/ffffff?text=GB' },
+                { id: '2', title: 'PK Pentadbiran', name: 'En. Mohd Zulkifli Bin Ismail', grade: 'DG48', photo: 'https://placehold.co/150x150/0284c7/ffffff?text=PK1' },
+                { id: '3', title: 'PK Hal Ehwal Murid', name: 'En. Wan Azman Bin Wan Yaacob', grade: 'DG48', photo: 'https://placehold.co/150x150/0284c7/ffffff?text=PK+HEM' },
+                { id: '4', title: 'PK Kokurikulum', name: 'Pn. Norazlina Binti Che Omar', grade: 'DG48', photo: 'https://placehold.co/150x150/0284c7/ffffff?text=PK+KOKU' }
+            ],
+            staff: [
+                { id: 'S1', name: 'Pn. Hajah Rohana Binti Hassan', category: 'Guru', position: 'Guru Besar', grade: 'DG52', unit: 'Pentadbiran Utama', email: 'g-11111111@moe-dl.edu.my', phone: '019-9811111', status: 'Aktif', photo: 'https://placehold.co/150x150/0284c7/ffffff?text=GB' },
+                { id: 'S2', name: 'En. Mohd Zulkifli Bin Ismail', category: 'Guru', position: 'PK Pentadbiran', grade: 'DG48', unit: 'Kurikulum', email: 'g-22222222@moe-dl.edu.my', phone: '019-9822222', status: 'Aktif', photo: 'https://placehold.co/150x150/0284c7/ffffff?text=PK1' },
+                { id: 'S3', name: 'En. Wan Azman Bin Wan Yaacob', category: 'Guru', position: 'PK Hal Ehwal Murid', grade: 'DG48', unit: 'HEM', email: 'g-33333333@moe-dl.edu.my', phone: '019-9833333', status: 'Aktif', photo: 'https://placehold.co/150x150/0284c7/ffffff?text=PK+HEM' },
+                { id: 'S4', name: 'Pn. Norazlina Binti Che Omar', category: 'Guru', position: 'PK Kokurikulum', grade: 'DG48', unit: 'Kokurikulum', email: 'g-44444444@moe-dl.edu.my', phone: '019-9844444', status: 'Aktif', photo: 'https://placehold.co/150x150/0284c7/ffffff?text=PK+KOKU' },
+                { id: 'S5', name: 'En. Ahmad Bin Abdullah', category: 'Guru', position: 'Guru Akademik Biasa', grade: 'DG44', unit: 'Panitia Bahasa Melayu', email: 'g-55555555@moe-dl.edu.my', phone: '019-9855555', status: 'Aktif', photo: 'https://placehold.co/150x150/0284c7/ffffff?text=GURU' },
+                { id: 'S6', name: 'Pn. Siti Rahmah Binti Ali', category: 'AKP', position: 'Pembantu Tadbir (N19/N22)', grade: 'N19', unit: 'Pentadbiran Pejabat', email: 'akp-6666@moe-dl.edu.my', phone: '019-9866666', status: 'Aktif', photo: 'https://placehold.co/150x150/0284c7/ffffff?text=AKP' }
+            ],
+            attendance: [
+                { id: 'A1', staffId: 'S1', staffName: 'Pn. Hajah Rohana Binti Hassan', date: '2026-10-08', time: '07:25 AM', status: 'Hadir', note: 'Hadir Perhimpunan Pagi' },
+                { id: 'A2', staffId: 'S2', staffName: 'En. Mohd Zulkifli Bin Ismail', date: '2026-10-08', time: '07:30 AM', status: 'Hadir', note: '' },
+                { id: 'A3', staffId: 'S3', staffName: 'En. Wan Azman Bin Wan Yaacob', date: '2026-10-08', time: '08:00 AM', status: 'Tugas Rasmi', note: 'Mesyuarat HEM PPD' }
+            ],
+            activities: [
+                { id: 'ACT1', sectionId: 'PADM_05', title: 'Pelancaran Bulan Bahasa Kebangsaan', unit: 'Pentadbiran', date: '2026-10-05', year: '2026', status: 'Selesai', publicVisible: 'YA', driveUrl: '#', isKpi: false },
+                { id: 'ACT2', sectionId: 'PHEM_13', title: 'Program Latihan Kebakaran & Keselamatan', unit: 'HEM', date: '2026-10-12', year: '2026', status: 'Dalam Perancangan', publicVisible: 'YA', driveUrl: '#', isKpi: false },
+                { id: 'ACT3', sectionId: 'PKOK_11', title: 'Kejohanan Olahraga Tahunan Sekolah', unit: 'Kokurikulum', date: '2026-10-20', year: '2026', status: 'Dalam Perancangan', publicVisible: 'YA', driveUrl: '#', isKpi: false },
+                { id: 'KPI1', sectionId: 'PADM_08', title: 'Pencerapan PdP Guru Fasa 1', unit: 'Pentadbiran', date: '2026-10-01', year: '2026', status: 'Selesai', publicVisible: 'TIDAK', driveUrl: '#', isKpi: true, actual: 24, target: 24, direction: 'higher_better', resultPct: 100, kpiStatus: 'Mencapai Sasaran' },
+                { id: 'KPI2', sectionId: 'PHEM_02', title: 'Kadar Kehadiran Murid Bulanan', unit: 'HEM', date: '2026-09-30', year: '2026', status: 'Selesai', publicVisible: 'YA', driveUrl: '#', isKpi: true, actual: 94.5, target: 95.0, direction: 'higher_better', resultPct: 99.47, kpiStatus: 'Dalam Kemajuan' },
+                { id: 'KPI3', sectionId: 'PHEM_03', title: 'Jumlah Kes Disiplin Berat', unit: 'HEM', date: '2026-09-30', year: '2026', status: 'Selesai', publicVisible: 'TIDAK', driveUrl: '#', isKpi: true, actual: 0, target: 0, direction: 'lower_better', resultPct: 100, kpiStatus: 'Mencapai Sasaran' }
+            ],
+            delima: [
+                { id: 'D1', name: 'MUHAMMAD AMIR BIN AHMAD', mykid: '160101-03-5555', class: '6 BESTARI', emailDelima: 'm-12345678@moe-dl.edu.my', status: 'Aktif' },
+                { id: 'D2', name: 'NUR AIN BINTI ZULKIFLI', mykid: '170202-03-6666', class: '5 CERDIK', emailDelima: 'm-87654321@moe-dl.edu.my', status: 'Aktif' }
+            ],
+            documents: [
+                { id: 'DOC1', title: 'Buku Panduan Pengurusan Sekolah 2026', unit: 'Pentadbiran', sectionId: 'PADM_01', category: 'Pekeliling & Surat', date: '2026-01-02', year: '2026', driveUrl: '#', fileName: 'Buku_Pengurusan_2026.pdf', fileSize: '2.4 MB' }
+            ],
+            auditLogs: [
+                { timestamp: '2026-10-08 08:00:00', userRole: 'SUPER_ADMIN', action: 'SYSTEM_INIT', unit: 'Pentadbiran', section: 'Profil Sekolah', summary: 'Sistem BPY ONE dimulakan.' }
+            ]
+        };
+
+        // Chart instances
+        let staffChartObj = null;
+        let programChartObj = null;
+        let pentadbiranChartObj = null;
+        let hemChartObj = null;
+        let kokuChartObj = null;
+
+        // KPI Calculator Engine
+        function calculateKpiMetrics(actual, target, direction = 'higher_better') {
+            const act = parseFloat(actual);
+            const tgt = parseFloat(target);
+
+            if (isNaN(act) || isNaN(tgt)) {
+                return { pct: 0, status: 'Tiada Data', textClass: 'text-slate-500', bgClass: 'bg-slate-100' };
+            }
+
+            // Handle valid zero target cases
+            if (tgt === 0) {
+                if (act === 0) {
+                    return { pct: 100, status: 'Mencapai Sasaran', textClass: 'text-emerald-700', bgClass: 'bg-emerald-100' };
+                } else {
+                    return { pct: 0, status: 'Perlu Tindakan', textClass: 'text-rose-700', bgClass: 'bg-rose-100' };
+                }
+            }
+
+            let pct = (act / tgt) * 100;
+            pct = Math.round(pct * 100) / 100; // Round to 2 decimal places
+
+            if (direction === 'higher_better') {
+                if (pct >= 100) {
+                    return { pct, status: 'Mencapai Sasaran', textClass: 'text-emerald-700', bgClass: 'bg-emerald-100' };
+                } else if (pct >= 80) {
+                    return { pct, status: 'Dalam Kemajuan', textClass: 'text-amber-700', bgClass: 'bg-amber-100' };
+                } else {
+                    return { pct, status: 'Perlu Tindakan', textClass: 'text-rose-700', bgClass: 'bg-rose-100' };
+                }
+            } else {
+                // lower_better (e.g. 0 discipline cases)
+                if (act <= tgt) {
+                    return { pct: 100, status: 'Mencapai Sasaran', textClass: 'text-emerald-700', bgClass: 'bg-emerald-100' };
+                } else {
+                    return { pct, status: 'Perlu Tindakan', textClass: 'text-rose-700', bgClass: 'bg-rose-100' };
+                }
+            }
+        }
+
+        // Add entry to Audit Log
+        function logAuditEvent(action, unit, section, summary) {
+            const now = new Date();
+            const timeStr = now.toLocaleDateString('ms-MY') + ' ' + now.toLocaleTimeString('ms-MY');
+            APP_DATA.auditLogs.unshift({
+                timestamp: timeStr,
+                userRole: currentUserRole,
+                action: action,
+                unit: unit || 'Sistem',
+                section: section || '-',
+                summary: summary
+            });
+            if (APP_DATA.auditLogs.length > 50) APP_DATA.auditLogs.pop();
+            renderAuditLogsTable();
+        }
+
+        // Sync local state with Google Sheets & Drive via Apps Script
+        async function syncWithGoogleSheets(action = 'READ') {
+            updateDbStatusDisplay('SYNCING');
+
+            if (!GOOGLE_CONFIG.webAppUrl) {
+                updateDbStatusDisplay('LOCAL');
+                if (action === 'WRITE') showToast('Data BELUM disimpan ke Google Sheets: URL Apps Script belum ditetapkan.', 'rose');
+                return false;
+            }
+
+            try {
+                if (action === 'READ') {
+                    const res = await fetch(GOOGLE_CONFIG.webAppUrl + '?action=getData&t=' + Date.now());
+                    const json = await res.json();
+                    if (json && json.status === 'success') {
+                        if (json.data && Object.keys(json.data).length) {
+                            APP_DATA = Object.assign(APP_DATA, json.data);
+                            safeSet('bpy_app_data', JSON.stringify(APP_DATA));
+                            refreshAllDisplays();
+                            showToast('Data dikemaskini dari Google Sheets!', 'success');
+                        }
+                        updateDbStatusDisplay('CLOUD');
+                        return true;
+                    }
+                    throw new Error((json && json.message) || 'Respons tidak sah');
+                } else if (action === 'WRITE') {
+                    const postBody = {
+                        action: 'saveData',
+                        data: APP_DATA,
+                        driveFolderId: GOOGLE_CONFIG.driveFolderId
+                    };
+
+                    // text/plain = "simple request" supaya tiada CORS preflight & respons boleh dibaca
+                    const res = await fetch(GOOGLE_CONFIG.webAppUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify(postBody)
+                    });
+                    const json = await res.json();
+                    if (json && json.status === 'success') {
+                        safeSet('bpy_app_data', JSON.stringify(APP_DATA));
+                        updateDbStatusDisplay('CLOUD');
+                        showToast('Tersimpan ke Google Sheets!', 'success');
+                        return true;
+                    }
+                    throw new Error((json && json.message) || 'Respons tidak sah');
+                }
+            } catch (err) {
+                console.warn('Google Sync Warning:', err);
+                updateDbStatusDisplay('LOCAL');
+                showToast('Gagal sambung ke Google Sheets: ' + (err.message || err), 'rose');
+            }
+            return false;
+        }
+
+        function updateDbStatusDisplay(state) {
+            const dot = document.getElementById('dbStatusDot');
+            const text = document.getElementById('dbStatusText');
+            if (state === 'CLOUD') {
+                dot.className = 'inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
+                text.className = 'text-emerald-400 font-semibold';
+                text.innerText = 'Terhubung ke Google Sheets & Drive';
+            } else if (state === 'SYNCING') {
+                dot.className = 'inline-block w-2.5 h-2.5 rounded-full bg-sky-400 animate-spin';
+                text.className = 'text-sky-300 font-semibold';
+                text.innerText = 'Menyegerakkan Cloud...';
+            } else {
+                dot.className = 'inline-block w-2.5 h-2.5 rounded-full bg-amber-400';
+                text.className = 'text-amber-400 font-semibold';
+                text.innerText = 'Pangkalan Data Tempatan (Sila Sambung Sheets/Drive)';
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedLocal = safeGet('bpy_app_data');
+            if (savedLocal) {
+                try { APP_DATA = Object.assign(APP_DATA, JSON.parse(savedLocal)); } catch(e){}
+            }
+
+            if (GOOGLE_CONFIG.webAppUrl) {
+                syncWithGoogleSheets('READ');
+            } else {
+                updateDbStatusDisplay('LOCAL');
+            }
+
+            refreshAllDisplays();
+            updateRealtimeClock();
+            setInterval(updateRealtimeClock, 1000);
+        });
+
+        function refreshAllDisplays() {
+            renderHeaderLeaders();
+            renderDashboardKPIs();
+            renderDashboardCharts();
+            renderPublicActivities();
+            renderStaffGrid();
+            renderAttendanceOptionsAndTable();
+            renderPentadbiranTab();
+            renderHEMTab();
+            renderKokurikulumTab();
+            renderDelimaTable();
+            renderDriveDocuments();
+            renderAuditLogsTable();
+            updateLogoImageDisplay();
+        }
+
+        function updateRealtimeClock() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const dateString = now.toLocaleDateString('ms-MY', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const clockEl = document.getElementById('attTimeDisplay');
+            if (clockEl) clockEl.value = `${dateString} ${timeString}`;
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-white/10', 'text-amber-400');
+                btn.classList.add('text-slate-300');
+            });
+
+            const activeTab = document.getElementById('tab-' + tabId);
+            const activeNav = document.getElementById('nav-' + tabId);
+
+            if (activeTab) activeTab.classList.remove('hidden');
+            if (activeNav) {
+                activeNav.classList.add('bg-white/10', 'text-amber-400');
+                activeNav.classList.remove('text-slate-300');
+            }
+        }
+
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-emerald-600' : 'bg-rose-600';
+            const icon = type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation';
+
+            toast.className = `${bgColor} text-white px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between text-xs font-bold animate-fade-in pointer-events-auto`;
+            toast.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid ${icon} text-base"></i>
+                    <span>${msg}</span>
+                </div>
+                <button onclick="this.parentElement.remove()" class="ml-3 text-white/80 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        function openGoogleDriveConfigModal() {
+            document.getElementById('gasWebAppUrlInput').value = GOOGLE_CONFIG.webAppUrl;
+            document.getElementById('gasDriveFolderIdInput').value = GOOGLE_CONFIG.driveFolderId;
+            document.getElementById('googleDriveConfigModal').classList.remove('hidden');
+        }
+
+        function closeGoogleDriveConfigModal() {
+            document.getElementById('googleDriveConfigModal').classList.add('hidden');
+        }
+
+        function handleGoogleDriveConfigSubmit(e) {
+            e.preventDefault();
+            const url = document.getElementById('gasWebAppUrlInput').value.trim();
+            const folder = document.getElementById('gasDriveFolderIdInput').value.trim();
+
+            GOOGLE_CONFIG.webAppUrl = url;
+            GOOGLE_CONFIG.driveFolderId = folder;
+
+            safeSet('bpy_gas_url', url);
+            safeSet('bpy_drive_folder', folder);
+
+            closeGoogleDriveConfigModal();
+            showToast('Tetapan Google Sheets & Drive disimpan!', 'success');
+            logAuditEvent('CONFIG_UPDATE', 'Sistem', 'Google Drive/Sheets', 'Kemaskini URL Google Apps Script Web App');
+
+            if (url) {
+                syncWithGoogleSheets('WRITE');
+            } else {
+                updateDbStatusDisplay('LOCAL');
+            }
+        }
+
+        function copyAppsScriptCode() {
+            const scriptCode = `// KOD GOOGLE APPS SCRIPT BPY ONE (v2 - data dipecah ikut bahagian supaya tak lebih had 50,000 aksara satu sel)
+var CHUNK = 40000;
+
+function sheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  return ss.getSheetByName('BPY_DATA') || ss.insertSheet('BPY_DATA');
+}
+function out_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function doGet(e) {
+  try {
+    var sh = sheet_();
+    var last = sh.getLastRow();
+    var json = '';
+    if (last > 0) {
+      json = sh.getRange(1, 1, last, 1).getValues().map(function (r) { return r[0]; }).join('');
+    }
+    return out_({ status: 'success', data: json ? JSON.parse(json) : {} });
+  } catch (err) {
+    return out_({ status: 'error', message: String(err) });
+  }
+}
+
+function doPost(e) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var p = JSON.parse(e.postData.contents);
+
+    if (p.action === 'saveData') {
+      var s = JSON.stringify(p.data);
+      var rows = [];
+      for (var i = 0; i < s.length; i += CHUNK) rows.push([s.substring(i, i + CHUNK)]);
+      var sh = sheet_();
+      sh.clear();
+      sh.getRange(1, 1, rows.length, 1).setNumberFormat('@').setValues(rows);
+      return out_({ status: 'success', chunks: rows.length });
+    }
+
+    if (p.action === 'uploadFile') {
+      var folder = p.driveFolderId ? DriveApp.getFolderById(p.driveFolderId) : DriveApp.getRootFolder();
+      var blob = Utilities.newBlob(Utilities.base64Decode(p.base64), p.mimeType || 'application/octet-stream', p.fileName);
+      var f = folder.createFile(blob);
+      return out_({ status: 'success', url: f.getUrl(), id: f.getId() });
+    }
+
+    return out_({ status: 'error', message: 'Action tidak dikenali' });
+  } catch (err) {
+    return out_({ status: 'error', message: String(err) });
+  } finally {
+    lock.releaseLock();
+  }
+}`;
+            navigator.clipboard.writeText(scriptCode);
+            showToast('Kod Google Apps Script disalin ke clipboard!', 'success');
+        }
+
+        function openAdminLoginModal() {
+            document.getElementById('adminLoginModal').classList.remove('hidden');
+        }
+
+        function closeAdminLoginModal() {
+            document.getElementById('adminLoginModal').classList.add('hidden');
+            document.getElementById('loginErrorBox').classList.add('hidden');
+        }
+
+        function handleAdminLoginSubmit(e) {
+            e.preventDefault();
+            const role = document.getElementById('loginRoleSelect').value;
+            const pass = document.getElementById('loginPasswordInput').value;
+
+            if (pass === UNIT_PASSWORDS[role] || pass === 'admin123') {
+                currentUserRole = role;
+                updateRoleUI();
+                closeAdminLoginModal();
+                showToast(`Log masuk berjaya sebagai ${role.replace('_', ' ')}`, 'success');
+                logAuditEvent('LOGIN', 'Sistem', 'Akses', `Log masuk berjaya peranan ${role}`);
+            } else {
+                document.getElementById('loginErrorBox').classList.remove('hidden');
+            }
+        }
+
+        function logoutAdmin() {
+            logAuditEvent('LOGOUT', 'Sistem', 'Akses', `Log keluar peranan ${currentUserRole}`);
+            currentUserRole = 'PUBLIC';
+            updateRoleUI();
+            showToast('Log keluar berjaya.', 'success');
+        }
+
+        function updateRoleUI() {
+            const roleBadge = document.getElementById('userRoleBadgeDisplay');
+            const noticeRole = document.getElementById('activeRoleNotice');
+            const btnLogin = document.getElementById('btnLoginModalTrigger');
+            const adminInfo = document.getElementById('adminSessionInfo');
+            const sessionRoleText = document.getElementById('sessionRoleText');
+            const superAdminOnlyElements = document.querySelectorAll('.super-admin-only');
+
+            if (currentUserRole === 'PUBLIC') {
+                roleBadge.innerText = 'Mod Awam (Ibu Bapa / Baca Sahaja)';
+                noticeRole.innerText = 'Mod Awam (Ibu Bapa)';
+                btnLogin.classList.remove('hidden');
+                adminInfo.classList.add('hidden');
+                superAdminOnlyElements.forEach(el => el.classList.add('hidden'));
+            } else {
+                const formattedRole = currentUserRole.replace('_', ' ');
+                roleBadge.innerText = `Akses Pentadbir: ${formattedRole}`;
+                noticeRole.innerText = formattedRole;
+                sessionRoleText.innerText = formattedRole;
+                btnLogin.classList.add('hidden');
+                adminInfo.classList.remove('hidden');
+                adminInfo.classList.add('flex');
+
+                if (currentUserRole === 'SUPER_ADMIN') {
+                    superAdminOnlyElements.forEach(el => el.classList.remove('hidden'));
+                } else {
+                    superAdminOnlyElements.forEach(el => el.classList.add('hidden'));
+                }
+            }
+            refreshAllDisplays();
+        }
+
+        // Leader Display
+        function renderHeaderLeaders() {
+            const container = document.getElementById('leadersHeaderGrid');
+            container.innerHTML = APP_DATA.leaders.map(l => `
+                <div class="bg-slate-800/80 p-2 rounded-xl border border-slate-700/60 flex items-center gap-2.5">
+                    <img src="${l.photo}" class="w-10 h-10 rounded-lg object-cover border border-amber-400/50 shrink-0">
+                    <div class="overflow-hidden">
+                        <p class="text-[10px] font-bold text-amber-300 uppercase truncate">${l.title}</p>
+                        <p class="text-xs font-black text-white truncate">${l.name}</p>
+                        <p class="text-[9px] text-slate-400 font-mono">${l.grade}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Staff Directory
+        function openStaffModalForAdd() {
+            if (currentUserRole !== 'SUPER_ADMIN' && currentUserRole !== 'PENTADBIRAN_ADMIN') {
+                showToast('Hanya Super Admin & Admin Pentadbiran boleh mengurus staf.', 'rose');
+                return;
+            }
+            document.getElementById('staffEditId').value = '';
+            document.getElementById('staffModalTitle').innerText = 'Tambah Staf Baharu';
+            document.getElementById('staffForm').reset();
+            document.getElementById('staffImagePreview').src = 'https://placehold.co/150x150/0284c7/ffffff?text=STAF';
+            document.getElementById('staffModal').classList.remove('hidden');
+        }
+
+        function closeStaffModal() {
+            document.getElementById('staffModal').classList.add('hidden');
+        }
+
+        // Kecilkan gambar (maks 400px, JPEG) supaya data kecil & muat dalam Google Sheets
+        function compressImageFile(file, maxPx, cb) {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const img = new Image();
+                img.onload = () => {
+                    const ratio = Math.min(1, maxPx / Math.max(img.width, img.height));
+                    const c = document.createElement('canvas');
+                    c.width = Math.round(img.width * ratio);
+                    c.height = Math.round(img.height * ratio);
+                    const ctx = c.getContext('2d');
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, c.width, c.height);
+                    ctx.drawImage(img, 0, 0, c.width, c.height);
+                    cb(c.toDataURL('image/jpeg', 0.8));
+                };
+                img.src = evt.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function previewStaffImage(e) {
+            const file = e.target.files[0];
+            if (file) {
+                compressImageFile(file, 400, (data) => {
+                    document.getElementById('staffImagePreview').src = data;
+                });
+            }
+        }
+
+        function resetStaffPhoto() {
+            document.getElementById('staffImagePreview').src = 'https://placehold.co/150x150/0284c7/ffffff?text=STAF';
+            document.getElementById('staffImageFileInput').value = '';
+        }
+
+        function handleStaffFormSubmit(e) {
+            e.preventDefault();
+            const editId = document.getElementById('staffEditId').value;
+            const photoSrc = document.getElementById('staffImagePreview').src;
+
+            const staffObj = {
+                id: editId || 'S' + Date.now(),
+                name: document.getElementById('staffNameInput').value.trim(),
+                category: document.getElementById('staffCategoryInput').value,
+                position: document.getElementById('staffPositionInput').value,
+                grade: document.getElementById('staffGradeInput').value.trim(),
+                unit: document.getElementById('staffUnitInput').value.trim(),
+                email: document.getElementById('staffEmailInput').value.trim(),
+                phone: document.getElementById('staffPhoneInput').value.trim(),
+                status: document.getElementById('staffStatusInput').value,
+                photo: photoSrc
+            };
+
+            if (editId) {
+                const idx = APP_DATA.staff.findIndex(s => s.id === editId);
+                if (idx !== -1) APP_DATA.staff[idx] = staffObj;
+                showToast('Maklumat staf dikemaskini!', 'success');
+                logAuditEvent('STAFF_UPDATE', 'Pentadbiran', 'Maklumat Guru dan AKP', `Kemaskini staf: ${staffObj.name}`);
+            } else {
+                APP_DATA.staff.push(staffObj);
+                showToast('Staf baharu ditambah!', 'success');
+                logAuditEvent('STAFF_ADD', 'Pentadbiran', 'Maklumat Guru dan AKP', `Tambah staf baharu: ${staffObj.name}`);
+            }
+
+            closeStaffModal();
+            syncWithGoogleSheets('WRITE');
+            refreshAllDisplays();
+        }
+
+        function editStaff(id) {
+            if (currentUserRole !== 'SUPER_ADMIN' && currentUserRole !== 'PENTADBIRAN_ADMIN') {
+                showToast('Hanya Super Admin & Admin Pentadbiran boleh mengurus staf.', 'rose');
+                return;
+            }
+            const s = APP_DATA.staff.find(x => x.id === id);
+            if (!s) return;
+
+            document.getElementById('staffEditId').value = s.id;
+            document.getElementById('staffModalTitle').innerText = 'Sunting Maklumat Staf';
+            document.getElementById('staffNameInput').value = s.name;
+            document.getElementById('staffCategoryInput').value = s.category;
+            document.getElementById('staffPositionInput').value = s.position;
+            document.getElementById('staffGradeInput').value = s.grade || '';
+            document.getElementById('staffUnitInput').value = s.unit || '';
+            document.getElementById('staffEmailInput').value = s.email || '';
+            document.getElementById('staffPhoneInput').value = s.phone || '';
+            document.getElementById('staffStatusInput').value = s.status;
+            document.getElementById('staffImagePreview').src = s.photo || 'https://placehold.co/150x150/0284c7/ffffff?text=STAF';
+
+            document.getElementById('staffModal').classList.remove('hidden');
+        }
+
+        function deleteStaff(id) {
+            if (currentUserRole !== 'SUPER_ADMIN') {
+                showToast('Hanya Super Admin boleh memadam staf.', 'rose');
+                return;
+            }
+            if (confirm('Adakah anda pasti mahu memadam staf ini?')) {
+                const s = APP_DATA.staff.find(x => x.id === id);
+                APP_DATA.staff = APP_DATA.staff.filter(x => x.id !== id);
+                showToast('Staf telah dipadam.', 'success');
+                logAuditEvent('STAFF_DELETE', 'Pentadbiran', 'Maklumat Guru dan AKP', `Padam staf: ${s ? s.name : id}`);
+                syncWithGoogleSheets('WRITE');
+                refreshAllDisplays();
+            }
+        }
+
+        function renderStaffGrid() {
+            const query = (document.getElementById('staffSearchInput').value || '').toLowerCase();
+            const statusFilter = document.getElementById('staffStatusFilter').value;
+
+            const filtered = APP_DATA.staff.filter(s => {
+                const matchQ = s.name.toLowerCase().includes(query) || s.position.toLowerCase().includes(query) || (s.unit || '').toLowerCase().includes(query);
+                const matchS = statusFilter === 'ALL' || s.status === statusFilter;
+                return matchQ && matchS;
+            });
+
+            const container = document.getElementById('staffGridContainer');
+            container.innerHTML = filtered.map(s => `
+                <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 flex flex-col justify-between space-y-3 hover:shadow-md transition">
+                    <div class="flex items-start space-x-3">
+                        <img src="${s.photo}" class="w-14 h-14 rounded-2xl object-cover border-2 border-bpy-500 shadow-sm shrink-0">
+                        <div class="overflow-hidden flex-grow">
+                            <span class="text-[9px] font-bold px-2 py-0.5 rounded-full ${s.status === 'Aktif' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'} uppercase">
+                                ${s.status}
+                            </span>
+                            <h4 class="font-extrabold text-xs text-slate-900 mt-1 truncate">${s.name}</h4>
+                            <p class="text-[11px] font-bold text-bpy-700">${s.position}</p>
+                            <p class="text-[10px] text-slate-500 font-mono">${s.grade} &bull; ${s.unit || '-'}</p>
+                        </div>
+                    </div>
+                    <div class="pt-2 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-600">
+                        <span class="truncate"><i class="fa-solid fa-envelope mr-1 text-slate-400"></i>${s.email || '-'}</span>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <button onclick="editStaff('${s.id}')" class="p-1.5 text-sky-600 hover:bg-sky-100 rounded-lg transition"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="deleteStaff('${s.id}')" class="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg transition"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Update stats
+            document.getElementById('stat-total-staff').innerText = APP_DATA.staff.length;
+            document.getElementById('stat-active-staff').innerText = APP_DATA.staff.filter(x => x.status === 'Aktif').length;
+        }
+
+        // Attendance Module
+        function renderAttendanceOptionsAndTable() {
+            const select = document.getElementById('attStaffSelect');
+            const activeStaff = APP_DATA.staff.filter(s => s.status === 'Aktif');
+            select.innerHTML = activeStaff.map(s => `<option value="${s.id}">${s.name} (${s.position})</option>`).join('');
+
+            const tbody = document.getElementById('attendanceTableBody');
+            tbody.innerHTML = APP_DATA.attendance.map(a => `
+                <tr class="hover:bg-slate-50">
+                    <td class="py-2.5 px-3 font-bold text-slate-800">${a.staffName}</td>
+                    <td class="py-2.5 px-3 font-mono">${a.date}</td>
+                    <td class="py-2.5 px-3 font-mono">${a.time}</td>
+                    <td class="py-2.5 px-3">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${getAttendanceStatusBadge(a.status)}">
+                            ${a.status}
+                        </span>
+                    </td>
+                    <td class="py-2.5 px-3 text-slate-600">${a.note || '-'}</td>
+                    <td class="py-2.5 px-3">
+                        <button onclick="deleteAttendanceRecord('${a.id}')" class="text-rose-600 hover:text-rose-800 font-bold text-xs"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+
+            // Attendance KPI calculation
+            const totalActive = activeStaff.length;
+            const presentCount = APP_DATA.attendance.filter(a => a.status === 'Hadir' || a.status === 'Lewat').length;
+            const pct = totalActive > 0 ? Math.round((presentCount / totalActive) * 100) : 0;
+
+            document.getElementById('dash-guru-att-percentage').innerText = pct + '%';
+            document.getElementById('dash-guru-att-sub').innerText = `${presentCount} daripada ${totalActive} Hadir`;
+
+            document.getElementById('cnt-hadir').innerText = APP_DATA.attendance.filter(a => a.status === 'Hadir').length;
+            document.getElementById('cnt-tugas').innerText = APP_DATA.attendance.filter(a => a.status === 'Tugas Rasmi').length;
+            document.getElementById('cnt-crk').innerText = APP_DATA.attendance.filter(a => a.status === 'Cuti Rehat Khas').length;
+            document.getElementById('cnt-kuarantin').innerText = APP_DATA.attendance.filter(a => a.status === 'Cuti Kuarantin').length;
+            document.getElementById('cnt-lewat').innerText = APP_DATA.attendance.filter(a => a.status === 'Lewat').length;
+        }
+
+        function getAttendanceStatusBadge(st) {
+            switch(st) {
+                case 'Hadir': return 'bg-emerald-100 text-emerald-800';
+                case 'Tugas Rasmi': return 'bg-sky-100 text-sky-800';
+                case 'Cuti Rehat Khas': return 'bg-amber-100 text-amber-800';
+                case 'Cuti Kuarantin': return 'bg-purple-100 text-purple-800';
+                default: return 'bg-rose-100 text-rose-800';
+            }
+        }
+
+        function handleAttStatusChange() {
+            const st = document.getElementById('attStatusSelect').value;
+            const tag = document.getElementById('attReasonRequiredTag');
+            if (st !== 'Hadir') tag.classList.remove('hidden');
+            else tag.classList.add('hidden');
+        }
+
+        function handleAttendanceSubmit(e) {
+            e.preventDefault();
+            const staffId = document.getElementById('attStaffSelect').value;
+            const staffObj = APP_DATA.staff.find(s => s.id === staffId);
+            const status = document.getElementById('attStatusSelect').value;
+            const note = document.getElementById('attNoteInput').value.trim();
+
+            if (status !== 'Hadir' && !note) {
+                showToast('Sila masukkan catatan/ulasan bagi status selain Hadir.', 'rose');
+                return;
+            }
+
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            const timeStr = now.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' });
+
+            APP_DATA.attendance.unshift({
+                id: 'ATT_' + Date.now(),
+                staffId: staffId,
+                staffName: staffObj ? staffObj.name : 'Staf',
+                date: dateStr,
+                time: timeStr,
+                status: status,
+                note: note
+            });
+
+            showToast('Kehadiran berjaya direkodkan!', 'success');
+            logAuditEvent('ATTENDANCE_RECORD', 'Pentadbiran', 'Kehadiran Guru', `Rekod kehadiran: ${staffObj ? staffObj.name : staffId} (${status})`);
+            document.getElementById('attNoteInput').value = '';
+            syncWithGoogleSheets('WRITE');
+            renderAttendanceOptionsAndTable();
+        }
+
+        function deleteAttendanceRecord(id) {
+            if (currentUserRole === 'PUBLIC') {
+                showToast('Hanya admin boleh memadam rekod kehadiran.', 'rose');
+                return;
+            }
+            if (confirm('Padam rekod kehadiran ini?')) {
+                APP_DATA.attendance = APP_DATA.attendance.filter(a => a.id !== id);
+                showToast('Rekod kehadiran dipadam.', 'success');
+                syncWithGoogleSheets('WRITE');
+                renderAttendanceOptionsAndTable();
+            }
+        }
+
+        // Program & KPI Records Activity Form
+        function openAddActivityModal(unitName) {
+            if (currentUserRole === 'PUBLIC') {
+                showToast('Sila log masuk admin untuk menambah rekod.', 'rose');
+                return;
+            }
+            document.getElementById('actEditId').value = '';
+            document.getElementById('actModalTitle').innerText = 'Tambah Program / KPI ' + unitName;
+            document.getElementById('actUnitInput').value = unitName;
+            document.getElementById('activityRecordForm').reset();
+            document.getElementById('enableKpiCalcToggle').checked = false;
+            toggleKpiFieldsDisplay();
+
+            populateSectionDropdown(unitName, 'actSectionSelect');
+            document.getElementById('activityFormModal').classList.remove('hidden');
+        }
+
+        function populateSectionDropdown(unitName, dropdownId) {
+            const select = document.getElementById(dropdownId);
+            const sections = SECTIONS_MASTER[unitName] || [];
+            select.innerHTML = sections.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        }
+
+        function closeActivityFormModal() {
+            document.getElementById('activityFormModal').classList.add('hidden');
+        }
+
+        function toggleKpiFieldsDisplay() {
+            const isChecked = document.getElementById('enableKpiCalcToggle').checked;
+            const group = document.getElementById('kpiCalcFieldsGroup');
+            if (isChecked) group.classList.remove('hidden');
+            else group.classList.add('hidden');
+        }
+
+        function recalculateFormKpi() {
+            const act = document.getElementById('kpiActualInput').value;
+            const tgt = document.getElementById('kpiTargetInput').value;
+            const dir = document.getElementById('kpiDirectionSelect').value;
+
+            const calc = calculateKpiMetrics(act, tgt, dir);
+            const resEl = document.getElementById('kpiCalcResultDisplay');
+            const badgeEl = document.getElementById('kpiStatusBadgeDisplay');
+
+            resEl.innerText = calc.pct + '%';
+            badgeEl.innerText = calc.status;
+            badgeEl.className = `px-2.5 py-0.5 rounded-full text-[10px] font-bold ${calc.bgClass} ${calc.textClass}`;
+        }
+
+        function handleActivityRecordSubmit(e) {
+            e.preventDefault();
+            const editId = document.getElementById('actEditId').value;
+            const unit = document.getElementById('actUnitInput').value;
+            const sectionId = document.getElementById('actSectionSelect').value;
+            const title = document.getElementById('actTitleInput').value.trim();
+            const isKpi = document.getElementById('enableKpiCalcToggle').checked;
+
+            let actRecord = {
+                id: editId || 'ACT_' + Date.now(),
+                unit: unit,
+                sectionId: sectionId,
+                title: title,
+                date: document.getElementById('actDateInput').value || new Date().toISOString().split('T')[0],
+                year: (document.getElementById('actDateInput').value || '2026').substring(0, 4),
+                status: document.getElementById('actStatusSelect').value,
+                publicVisible: document.getElementById('actPublicVisibilitySelect').value,
+                driveUrl: document.getElementById('actDriveUrlInput').value.trim() || '#',
+                isKpi: isKpi
+            };
+
+            if (isKpi) {
+                const actVal = document.getElementById('kpiActualInput').value;
+                const tgtVal = document.getElementById('kpiTargetInput').value;
+                const dir = document.getElementById('kpiDirectionSelect').value;
+                const metrics = calculateKpiMetrics(actVal, tgtVal, dir);
+
+                actRecord.actual = parseFloat(actVal) || 0;
+                actRecord.target = parseFloat(tgtVal) || 0;
+                actRecord.direction = dir;
+                actRecord.resultPct = metrics.pct;
+                actRecord.kpiStatus = metrics.status;
+            }
+
+            if (editId) {
+                const idx = APP_DATA.activities.findIndex(a => a.id === editId);
+                if (idx !== -1) APP_DATA.activities[idx] = actRecord;
+                showToast('Rekod dikemaskini!', 'success');
+                logAuditEvent('RECORD_UPDATE', unit, sectionId, `Kemaskini rekod: ${title}`);
+            } else {
+                APP_DATA.activities.unshift(actRecord);
+                showToast('Rekod baharu disimpan!', 'success');
+                logAuditEvent('RECORD_ADD', unit, sectionId, `Tambah rekod baharu: ${title}`);
+            }
+
+            closeActivityFormModal();
+            syncWithGoogleSheets('WRITE');
+            refreshAllDisplays();
+        }
+
+        function editActivityRecord(id) {
+            if (currentUserRole === 'PUBLIC') {
+                showToast('Akses dinafikan. Sila log masuk admin.', 'rose');
+                return;
+            }
+            const act = APP_DATA.activities.find(a => a.id === id);
+            if (!act) return;
+
+            document.getElementById('actEditId').value = act.id;
+            document.getElementById('actModalTitle').innerText = 'Sunting Rekod ' + act.unit;
+            document.getElementById('actUnitInput').value = act.unit;
+            populateSectionDropdown(act.unit, 'actSectionSelect');
+            document.getElementById('actSectionSelect').value = act.sectionId;
+            document.getElementById('actTitleInput').value = act.title;
+            document.getElementById('actDateInput').value = act.date;
+            document.getElementById('actStatusSelect').value = act.status;
+            document.getElementById('actPublicVisibilitySelect').value = act.publicVisible || 'YA';
+            document.getElementById('actDriveUrlInput').value = act.driveUrl !== '#' ? act.driveUrl : '';
+
+            if (act.isKpi) {
+                document.getElementById('enableKpiCalcToggle').checked = true;
+                toggleKpiFieldsDisplay();
+                document.getElementById('kpiActualInput').value = act.actual;
+                document.getElementById('kpiTargetInput').value = act.target;
+                document.getElementById('kpiDirectionSelect').value = act.direction || 'higher_better';
+                recalculateFormKpi();
+            } else {
+                document.getElementById('enableKpiCalcToggle').checked = false;
+                toggleKpiFieldsDisplay();
+            }
+
+            document.getElementById('activityFormModal').classList.remove('hidden');
+        }
+
+        function deleteActivityRecord(id) {
+            if (currentUserRole === 'PUBLIC') {
+                showToast('Akses dinafikan.', 'rose');
+                return;
+            }
+            if (confirm('Padam rekod ini daripada pangkalan data?')) {
+                const act = APP_DATA.activities.find(a => a.id === id);
+                APP_DATA.activities = APP_DATA.activities.filter(a => a.id !== id);
+                showToast('Rekod dipadam.', 'success');
+                logAuditEvent('RECORD_DELETE', act ? act.unit : 'Sistem', act ? act.sectionId : '-', `Padam rekod: ${act ? act.title : id}`);
+                syncWithGoogleSheets('WRITE');
+                refreshAllDisplays();
+            }
+        }
+
+        // Section rendering helpers
+        function renderUnitActivityList(unitName, containerId) {
+            const container = document.getElementById(containerId);
+            const list = APP_DATA.activities.filter(a => a.unit === unitName);
+
+            if (list.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center py-8 text-slate-400 font-bold text-xs bg-slate-50 rounded-2xl border border-dashed border-slate-200">Tiada rekod program bagi unit ini. Klik "+ Tambah Program" untuk mula.</div>`;
+                return;
+            }
+
+            container.innerHTML = list.map(a => {
+                const sectionName = getSectionName(unitName, a.sectionId);
+                const kpiMetrics = a.isKpi ? calculateKpiMetrics(a.actual, a.target, a.direction) : null;
+
+                return `
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col justify-between space-y-3 hover:shadow-md transition">
+                        <div>
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-slate-200 text-slate-800 uppercase truncate">${sectionName}</span>
+                                <span class="text-[9px] font-bold px-2 py-0.5 rounded-full ${a.status === 'Selesai' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${a.status}</span>
+                            </div>
+                            <h4 class="font-bold text-xs text-slate-900 mt-2">${a.title}</h4>
+                            <p class="text-[10px] text-slate-500 font-mono mt-0.5"><i class="fa-solid fa-calendar mr-1"></i>${a.date}</p>
+                            
+                            ${a.isKpi ? `
+                                <div class="mt-2.5 p-2 bg-white rounded-xl border border-slate-200 space-y-1 text-[11px]">
+                                    <div class="flex justify-between font-bold">
+                                        <span class="text-slate-600">Pencapaian KPI:</span>
+                                        <span class="${kpiMetrics.textClass}">${kpiMetrics.pct}% (${a.actual}/${a.target})</span>
+                                    </div>
+                                    <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                        <div class="h-full bg-bpy-600" style="width: ${Math.min(kpiMetrics.pct, 100)}%"></div>
+                                    </div>
+                                    <div class="flex justify-between text-[9px] font-bold">
+                                        <span class="text-slate-500">Status KPI:</span>
+                                        <span class="${kpiMetrics.textClass}">${kpiMetrics.status}</span>
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <div class="pt-2 border-t border-slate-200 flex items-center justify-between text-xs">
+                            ${a.driveUrl && a.driveUrl !== '#' ? `
+                                <a href="${a.driveUrl}" target="_blank" class="text-rose-600 font-bold hover:underline text-[11px] flex items-center gap-1">
+                                    <i class="fa-solid fa-file-pdf"></i> Lampiran Drive
+                                </a>
+                            ` : `<span class="text-[10px] text-slate-400">Tiada Lampiran</span>`}
+
+                            <div class="flex items-center gap-1">
+                                <button onclick="editActivityRecord('${a.id}')" class="p-1.5 text-sky-600 hover:bg-sky-100 rounded-lg transition"><i class="fa-solid fa-pen"></i></button>
+                                <button onclick="deleteActivityRecord('${a.id}')" class="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg transition"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getSectionName(unit, sectionId) {
+            const list = SECTIONS_MASTER[unit] || [];
+            const found = list.find(s => s.id === sectionId);
+            return found ? found.name : sectionId;
+        }
+
+        function renderPentadbiranTab() { renderUnitActivityList('Pentadbiran', 'pentadbiranActivitiesList'); }
+        function renderHEMTab() { renderUnitActivityList('HEM', 'hemActivitiesList'); }
+        function renderKokurikulumTab() { renderUnitActivityList('Kokurikulum', 'kokuActivitiesList'); }
+
+        // DELIMa Table
+        function renderDelimaTable() {
+            const query = (document.getElementById('delimaSearchInput').value || '').toLowerCase();
+            const filtered = APP_DATA.delima.filter(d => d.name.toLowerCase().includes(query) || d.mykid.includes(query) || d.class.toLowerCase().includes(query));
+
+            const tbody = document.getElementById('delimaTableBody');
+            tbody.innerHTML = filtered.map(d => `
+                <tr class="hover:bg-slate-50">
+                    <td class="py-2.5 px-3 font-bold text-slate-900">${d.name}</td>
+                    <td class="py-2.5 px-3">${d.mykid}</td>
+                    <td class="py-2.5 px-3 font-bold text-bpy-700">${d.class}</td>
+                    <td class="py-2.5 px-3 text-sky-600 font-bold">${d.emailDelima}</td>
+                    <td class="py-2.5 px-3">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">${d.status}</span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Google Drive Documents Management
+        function handleFileUploadToDrive() {
+            if (currentUserRole === 'PUBLIC') {
+                showToast('Akses dinafikan. Sila log masuk admin.', 'rose');
+                return;
+            }
+            populateDocSections();
+            document.getElementById('driveFileUploadModal').classList.remove('hidden');
+        }
+
+        function closeDriveFileUploadModal() {
+            document.getElementById('driveFileUploadModal').classList.add('hidden');
+        }
+
+        function populateDocSections() {
+            const unit = document.getElementById('docUnitSelect').value;
+            populateSectionDropdown(unit, 'docSectionSelect');
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            document.getElementById('fileDropZone').classList.add('border-rose-600', 'bg-rose-100/50');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            document.getElementById('fileDropZone').classList.remove('border-rose-600', 'bg-rose-100/50');
+        }
+
+        function handleFileDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            document.getElementById('fileDropZone').classList.remove('border-rose-600', 'bg-rose-100/50');
+            const files = e.dataTransfer.files;
+            if (files.length) processSelectedFile(files[0]);
+        }
+
+        function handleFileSelect(e) {
+            if (e.target.files.length) processSelectedFile(e.target.files[0]);
+        }
+
+        let currentSelectedUploadFile = null;
+
+        function processSelectedFile(file) {
+            if (file.size > 10 * 1024 * 1024) {
+                showToast('Saiz fail melebihi had maksimum 10MB.', 'rose');
+                return;
+            }
+            currentSelectedUploadFile = file;
+            document.getElementById('fileNameText').innerText = file.name;
+            document.getElementById('fileSizeText').innerText = (file.size / 1024).toFixed(1) + ' KB';
+            document.getElementById('selectedFileInfo').classList.remove('hidden');
+        }
+
+        function handleDriveFileUploadSubmit(e) {
+            e.preventDefault();
+            if (!currentSelectedUploadFile) {
+                showToast('Sila pilih fail terlebih dahulu.', 'rose');
+                return;
+            }
+
+            const title = document.getElementById('docTitleInput').value.trim();
+            const unit = document.getElementById('docUnitSelect').value;
+            const sectionId = document.getElementById('docSectionSelect').value;
+            const category = document.getElementById('docCategorySelect').value;
+            const year = document.getElementById('docYearInput').value;
+
+            document.getElementById('uploadProgressBadge').innerText = 'Sedang dimuat naik...';
+            document.getElementById('btnStartUpload').disabled = true;
+
+            const reader = new FileReader();
+            reader.onload = async function(evt) {
+                const base64Data = evt.target.result.split(',')[1];
+
+                // Muat naik sebenar ke Google Drive melalui Apps Script
+                let driveUrl = '';
+                if (!GOOGLE_CONFIG.webAppUrl) {
+                    showToast('URL Apps Script belum ditetapkan, fail tak boleh dimuat naik.', 'rose');
+                    document.getElementById('btnStartUpload').disabled = false;
+                    document.getElementById('uploadProgressBadge').innerText = '';
+                    return;
+                }
+                try {
+                    const up = await fetch(GOOGLE_CONFIG.webAppUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({
+                            action: 'uploadFile',
+                            driveFolderId: GOOGLE_CONFIG.driveFolderId,
+                            fileName: currentSelectedUploadFile.name,
+                            mimeType: currentSelectedUploadFile.type,
+                            base64: base64Data
+                        })
+                    });
+                    const upJson = await up.json();
+                    if (!upJson || upJson.status !== 'success') throw new Error((upJson && upJson.message) || 'Respons tidak sah');
+                    driveUrl = upJson.url;
+                } catch (err) {
+                    showToast('Gagal muat naik ke Drive: ' + (err.message || err), 'rose');
+                    document.getElementById('btnStartUpload').disabled = false;
+                    document.getElementById('uploadProgressBadge').innerText = '';
+                    return;
+                }
+
+                // Save document metadata
+                const newDoc = {
+                    id: 'DOC_' + Date.now(),
+                    title: title,
+                    unit: unit,
+                    sectionId: sectionId,
+                    category: category,
+                    date: new Date().toISOString().split('T')[0],
+                    year: year,
+                    driveUrl: driveUrl,
+                    fileName: currentSelectedUploadFile.name,
+                    fileSize: (currentSelectedUploadFile.size / 1024).toFixed(1) + ' KB'
+                };
+
+                APP_DATA.documents.unshift(newDoc);
+                showToast('Fail berjaya dimuat naik ke Google Drive!', 'success');
+                logAuditEvent('FILE_UPLOAD', unit, sectionId, `Muat naik fail: ${currentSelectedUploadFile.name}`);
+
+                document.getElementById('btnStartUpload').disabled = false;
+                closeDriveFileUploadModal();
+                syncWithGoogleSheets('WRITE');
+                renderDriveDocuments();
+            };
+            reader.readAsDataURL(currentSelectedUploadFile);
+        }
+
+        function renderDriveDocuments() {
+            const container = document.getElementById('driveDocumentsContainer');
+            if (APP_DATA.documents.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center py-8 text-slate-400 font-bold text-xs bg-slate-50 rounded-2xl border border-dashed border-slate-200">Tiada fail dokumen tersimpan. Klik "Muat Naik Fail" untuk mulakan.</div>`;
+                return;
+            }
+
+            container.innerHTML = APP_DATA.documents.map(d => `
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col justify-between space-y-3 hover:shadow-md transition">
+                    <div>
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 uppercase">${d.category}</span>
+                            <span class="text-[9px] font-bold text-slate-500 font-mono">${d.year}</span>
+                        </div>
+                        <h4 class="font-extrabold text-xs text-slate-900 mt-2">${d.title}</h4>
+                        <p class="text-[10px] text-slate-500 font-mono mt-0.5"><i class="fa-solid fa-paperclip mr-1"></i>${d.fileName} (${d.fileSize})</p>
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-200 flex items-center justify-between text-xs">
+                        <a href="${d.driveUrl}" target="_blank" class="text-rose-600 font-bold hover:underline text-[11px] flex items-center gap-1">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i> Buka di Drive
+                        </a>
+                        <button onclick="deleteDriveDocument('${d.id}')" class="p-1 text-rose-600 hover:bg-rose-100 rounded transition"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function deleteDriveDocument(id) {
+            if (currentUserRole === 'PUBLIC') {
+                showToast('Akses dinafikan.', 'rose');
+                return;
+            }
+            if (confirm('Padam rekod fail lampiran ini?')) {
+                const doc = APP_DATA.documents.find(d => d.id === id);
+                APP_DATA.documents = APP_DATA.documents.filter(d => d.id !== id);
+                showToast('Fail dipadam.', 'success');
+                logAuditEvent('FILE_DELETE', doc ? doc.unit : 'Sistem', doc ? doc.sectionId : '-', `Padam fail: ${doc ? doc.fileName : id}`);
+                syncWithGoogleSheets('WRITE');
+                renderDriveDocuments();
+            }
+        }
+
+        // CSV / Excel Data Import Parse Workflow
+        let parsedImportData = [];
+
+        function openDataImportModal() {
+            if (currentUserRole === 'PUBLIC') {
+                showToast('Sila log masuk admin untuk mengimport data.', 'rose');
+                return;
+            }
+            parsedImportData = [];
+            document.getElementById('importPreviewContainer').classList.add('hidden');
+            document.getElementById('btnExecuteImport').disabled = true;
+            document.getElementById('dataImportModal').classList.remove('hidden');
+        }
+
+        function closeDataImportModal() {
+            document.getElementById('dataImportModal').classList.add('hidden');
+        }
+
+        function handleImportFileParse(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheet];
+                
+                parsedImportData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                if (parsedImportData.length < 2) {
+                    showToast('Fail CSV/Excel tidak mengandungi data yang sah.', 'rose');
+                    return;
+                }
+
+                renderImportPreviewTable(parsedImportData);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function renderImportPreviewTable(rows) {
+            const headers = rows[0];
+            const bodyRows = rows.slice(1, 6); // Preview up to 5 rows
+
+            const headEl = document.getElementById('importTableHead');
+            headEl.innerHTML = `<tr>${headers.map(h => `<th class="py-2 px-3">${h}</th>`).join('')}</tr>`;
+
+            const bodyEl = document.getElementById('importTableBody');
+            bodyEl.innerHTML = bodyRows.map(r => `<tr>${r.map(c => `<td class="py-1.5 px-3">${c !== undefined ? c : ''}</td>`).join('')}</tr>`).join('');
+
+            document.getElementById('importRecordCountBadge').innerText = `${rows.length - 1} Rekod Ditemui`;
+            document.getElementById('importPreviewContainer').classList.remove('hidden');
+            document.getElementById('btnExecuteImport').disabled = false;
+        }
+
+        function executeDataImport() {
+            if (parsedImportData.length < 2) return;
+
+            const unit = document.getElementById('importUnitSelect').value;
+            const recType = document.getElementById('importRecordTypeSelect').value;
+
+            let addedCount = 0;
+            const rows = parsedImportData.slice(1);
+
+            rows.forEach((r, idx) => {
+                if (!r || r.length === 0) return;
+                
+                if (recType === 'DELIMA') {
+                    APP_DATA.delima.push({
+                        id: 'D_' + Date.now() + '_' + idx,
+                        name: (r[0] || '').toString().toUpperCase(),
+                        mykid: (r[1] || '').toString(),
+                        class: (r[2] || '').toString().toUpperCase(),
+                        emailDelima: (r[3] || '').toString(),
+                        status: 'Aktif'
+                    });
+                    addedCount++;
+                } else {
+                    APP_DATA.activities.push({
+                        id: 'ACT_IMP_' + Date.now() + '_' + idx,
+                        unit: unit,
+                        sectionId: (r[0] || 'PADM_01').toString(),
+                        title: (r[1] || 'Program Import').toString(),
+                        date: new Date().toISOString().split('T')[0],
+                        year: '2026',
+                        status: 'Selesai',
+                        publicVisible: 'YA',
+                        driveUrl: '#',
+                        isKpi: recType === 'KPI'
+                    });
+                    addedCount++;
+                }
+            });
+
+            showToast(`Berjaya mengimport ${addedCount} rekod!`, 'success');
+            logAuditEvent('DATA_IMPORT', unit, recType, `Import pukal ${addedCount} rekod daripada Excel/CSV`);
+            closeDataImportModal();
+            syncWithGoogleSheets('WRITE');
+            refreshAllDisplays();
+        }
+
+        function downloadImportTemplate() {
+            const ws = XLSX.utils.aoa_to_sheet([
+                ["KodSeksyen", "TajukProgram", "Tarikh", "Status"],
+                ["PADM_01", "Mesyuarat Panitia Bil 1", "2026-10-10", "Selesai"]
+            ]);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Templat");
+            XLSX.writeFile(wb, "Templat_Import_BPY_ONE.xlsx");
+        }
+
+        // Dashboard Visual Analytics (Chart.js)
+        function renderDashboardKPIs() {
+            const activeStaff = APP_DATA.staff.filter(s => s.status === 'Aktif').length;
+            document.getElementById('stat-total-students').innerText = '248';
+            document.getElementById('stat-total-staff').innerText = APP_DATA.staff.length;
+            document.getElementById('stat-active-staff').innerText = activeStaff;
+
+            const totalProgs = APP_DATA.activities.length;
+            const completedProgs = APP_DATA.activities.filter(a => a.status === 'Selesai').length;
+            const rate = totalProgs > 0 ? Math.round((completedProgs / totalProgs) * 100) : 0;
+
+            document.getElementById('dash-overall-prog-rate').innerText = rate + '%';
+            document.getElementById('dash-prog-sub-text').innerText = `${completedProgs}/${totalProgs} Program Selesai`;
+        }
+
+        function renderDashboardCharts() {
+            // Chart 1: Staff Category
+            const ctxStaff = document.getElementById('staffChartCanvas');
+            if (ctxStaff) {
+                if (staffChartObj) staffChartObj.destroy();
+                const guruCount = APP_DATA.staff.filter(s => s.category === 'Guru').length;
+                const akpCount = APP_DATA.staff.filter(s => s.category === 'AKP').length;
+
+                staffChartObj = new Chart(ctxStaff, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Guru Akademik / Pentadbir', 'Anggota Kumpulan Pelaksana (AKP)'],
+                        datasets: [{
+                            label: 'Jumlah Staf',
+                            data: [guruCount, akpCount],
+                            backgroundColor: ['#0284c7', '#d97706'],
+                            borderRadius: 8
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            }
+
+            // Chart 2: Program Status Breakdown
+            const ctxProg = document.getElementById('programChartCanvas');
+            if (ctxProg) {
+                if (programChartObj) programChartObj.destroy();
+                const selesai = APP_DATA.activities.filter(a => a.status === 'Selesai').length;
+                const perancangan = APP_DATA.activities.filter(a => a.status === 'Dalam Perancangan').length;
+                const berlangsung = APP_DATA.activities.filter(a => a.status === 'Sedang Berlangsung').length;
+
+                programChartObj = new Chart(ctxProg, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Selesai', 'Dalam Perancangan', 'Sedang Berlangsung'],
+                        datasets: [{
+                            data: [selesai, perancangan, berlangsung],
+                            backgroundColor: ['#10b981', '#f59e0b', '#3b82f6']
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            }
+
+            // Unit Specific Charts
+            renderUnitSpecificCharts();
+        }
+
+        function renderUnitSpecificCharts() {
+            // Pentadbiran Chart
+            const ctxP = document.getElementById('pentadbiranChartCanvas');
+            if (ctxP) {
+                if (pentadbiranChartObj) pentadbiranChartObj.destroy();
+                pentadbiranChartObj = new Chart(ctxP, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Pencerapan PdP', 'Mesyuarat Panitia', 'Latihan LDP'],
+                        datasets: [{ label: 'Sasaran', data: [24, 12, 6], backgroundColor: '#94a3b8' },
+                                   { label: 'Pencapaian', data: [24, 10, 5], backgroundColor: '#0284c7' }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            }
+
+            // HEM Chart
+            const ctxH = document.getElementById('hemChartCanvas');
+            if (ctxH) {
+                if (hemChartObj) hemChartObj.destroy();
+                hemChartObj = new Chart(ctxH, {
+                    type: 'line',
+                    data: {
+                        labels: ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogos', 'Sep', 'Okt'],
+                        datasets: [{ label: 'Kehadiran Murid (%)', data: [95, 94.2, 96, 95.5, 94.8, 95, 96.2, 94.5, 95.1, 95.8], borderColor: '#6366f1', fill: false }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            }
+
+            // Kokurikulum Chart
+            const ctxK = document.getElementById('kokuChartCanvas');
+            if (ctxK) {
+                if (kokuChartObj) kokuChartObj.destroy();
+                kokuChartObj = new Chart(ctxK, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Zon / Daerah', 'Negeri', 'Kebangsaan'],
+                        datasets: [{ label: 'Penyertaan & Pencapaian', data: [14, 6, 2], backgroundColor: '#d97706' }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            }
+        }
+
+        // Public Activities Display Feed
+        function renderPublicActivities() {
+            const container = document.getElementById('publicActivitiesContainer');
+            const publicList = APP_DATA.activities.filter(a => a.publicVisible === 'YA');
+
+            if (publicList.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center py-6 text-slate-400 text-xs">Tiada aktiviti awam dikongsikan buat masa ini.</div>`;
+                return;
+            }
+
+            container.innerHTML = publicList.slice(0, 6).map(a => `
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                    <div class="flex items-center justify-between text-[10px] font-bold">
+                        <span class="px-2 py-0.5 rounded-full bg-bpy-100 text-bpy-800 uppercase">${a.unit}</span>
+                        <span class="text-slate-500 font-mono">${a.date}</span>
+                    </div>
+                    <h4 class="font-extrabold text-xs text-slate-900 line-clamp-2">${a.title}</h4>
+                    <div class="flex items-center justify-between pt-2 text-[11px]">
+                        <span class="font-bold ${a.status === 'Selesai' ? 'text-emerald-600' : 'text-amber-600'}">${a.status}</span>
+                        ${a.driveUrl && a.driveUrl !== '#' ? `<a href="${a.driveUrl}" target="_blank" class="text-rose-600 font-bold hover:underline"><i class="fa-solid fa-file-pdf"></i> Dokumen</a>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Global Dashboard Filter Actions
+        function applyGlobalDashboardFilters() {
+            refreshAllDisplays();
+            showToast('Penapis dashboard dikemaskini.', 'success');
+        }
+
+        function resetGlobalDashboardFilters() {
+            document.getElementById('filterYear').value = 'ALL';
+            document.getElementById('filterUnit').value = 'ALL';
+            refreshAllDisplays();
+        }
+
+        // Excel Exporting Helpers
+        function exportStaffToExcel() {
+            const data = APP_DATA.staff.map(s => ({
+                "ID Staf": s.id, "Nama Penuh": s.name, "Kategori": s.category, "Jawatan": s.position, "Gred": s.grade, "Unit": s.unit, "E-mel": s.email, "Telefon": s.phone, "Status": s.status
+            }));
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Staf");
+            XLSX.writeFile(wb, "Senarai_Staf_SKBPY_2026.xlsx");
+        }
+
+        function exportAttendanceToExcel() {
+            const data = APP_DATA.attendance.map(a => ({
+                "Tarikh": a.date, "Masa": a.time, "Nama Staf": a.staffName, "Status": a.status, "Catatan": a.note
+            }));
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Kehadiran");
+            XLSX.writeFile(wb, "Laporan_Kehadiran_Staf_SKBPY.xlsx");
+        }
+
+        function exportActivitiesToExcel() {
+            const data = APP_DATA.activities.map(a => ({
+                "ID": a.id, "Unit": a.unit, "Kod Seksyen": a.sectionId, "Tajuk Program": a.title, "Tarikh": a.date, "Tahun": a.year, "Status": a.status, "KPI?": a.isKpi ? "YA" : "TIDAK", "Pencapaian (%)": a.isKpi ? a.resultPct : "-"
+            }));
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Program_KPI");
+            XLSX.writeFile(wb, "Laporan_Program_KPI_SKBPY.xlsx");
+        }
+
+        // Super Admin Management Functions
+        function openDashboardLogoModal() {
+            document.getElementById('dashLogoPreviewImg').src = APP_DATA.dashboardLogo;
+            document.getElementById('dashboardLogoModal').classList.remove('hidden');
+        }
+
+        function closeDashboardLogoModal() {
+            document.getElementById('dashboardLogoModal').classList.add('hidden');
+        }
+
+        function previewDashLogo(e) {
+            const file = e.target.files[0];
+            if (file) {
+                compressImageFile(file, 400, (data) => {
+                    document.getElementById('dashLogoPreviewImg').src = data;
+                });
+            }
+        }
+
+        function handleDashboardLogoSubmit(e) {
+            e.preventDefault();
+            const newImg = document.getElementById('dashLogoPreviewImg').src;
+            APP_DATA.dashboardLogo = newImg;
+            safeSet('bpy_dash_logo', newImg);
+            updateLogoImageDisplay();
+            closeDashboardLogoModal();
+            showToast('Gambar logo dashboard dikemaskini!', 'success');
+            logAuditEvent('LOGO_UPDATE', 'Pentadbiran', 'Profil Sekolah', 'Kemaskini logo utama dashboard');
+            syncWithGoogleSheets('WRITE');
+        }
+
+        function revertDashboardLogoToDefault() {
+            const def = 'https://placehold.co/150x150/0284c7/ffffff?text=SKBPY';
+            document.getElementById('dashLogoPreviewImg').src = def;
+        }
+
+        function updateLogoImageDisplay() {
+            const img = document.getElementById('mainDashboardLogoImg');
+            if (img) img.src = APP_DATA.dashboardLogo;
+        }
+
+        function openUnitPasswordModal() {
+            document.getElementById('unitPasswordModal').classList.remove('hidden');
+        }
+
+        function closeUnitPasswordModal() {
+            document.getElementById('unitPasswordModal').classList.add('hidden');
+        }
+
+        function handleUnitPasswordResetSubmit(e) {
+            e.preventDefault();
+            const unit = document.getElementById('passResetUnitSelect').value;
+            const newPass = document.getElementById('newUnitPassInput').value;
+            const confirmPass = document.getElementById('confirmUnitPassInput').value;
+
+            if (newPass !== confirmPass) {
+                showToast('Pengesahan kata laluan tidak sepadan.', 'rose');
+                return;
+            }
+
+            UNIT_PASSWORDS[unit] = newPass;
+            closeUnitPasswordModal();
+            showToast(`Kata laluan unit ${unit.replace('_', ' ')} berjaya ditukar!`, 'success');
+            logAuditEvent('PASSWORD_RESET', 'Sistem', 'Keselamatan', `Reset kata laluan bagi unit ${unit}`);
+        }
+
+        function togglePasswordVisibility(inputId, iconId) {
+            const inp = document.getElementById(inputId);
+            const ico = document.getElementById(iconId);
+            if (inp.type === 'password') {
+                inp.type = 'text';
+                ico.className = 'fa-solid fa-eye-slash text-xs';
+            } else {
+                inp.type = 'password';
+                ico.className = 'fa-solid fa-eye text-xs';
+            }
+        }
+
+        function renderAuditLogsTable() {
+            const tbody = document.getElementById('auditLogTableBody');
+            if (!tbody) return;
+
+            tbody.innerHTML = APP_DATA.auditLogs.map(l => `
+                <tr class="hover:bg-slate-50">
+                    <td class="py-2 px-3 text-slate-500 font-mono">${l.timestamp}</td>
+                    <td class="py-2 px-3 font-bold text-bpy-700">${l.userRole}</td>
+                    <td class="py-2 px-3"><span class="px-2 py-0.5 rounded bg-slate-100 font-bold text-slate-700">${l.action}</span></td>
+                    <td class="py-2 px-3">${l.unit} / ${l.section}</td>
+                    <td class="py-2 px-3 text-slate-700">${l.summary}</td>
+                </tr>
+            `).join('');
+        }
+    </script>
+</body>
+</html>
